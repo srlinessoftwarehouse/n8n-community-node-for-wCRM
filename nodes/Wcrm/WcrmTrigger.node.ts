@@ -128,18 +128,70 @@ export class WcrmTrigger implements INodeType {
 			body,
 		};
 
-		// Extract common fields for easier downstream use
-		if (body.from) {
-			outputData.from = body.from;
-		}
-		if (body.type) {
-			outputData.messageType = body.type;
-		}
-		if (body.timestamp) {
-			outputData.timestamp = body.timestamp;
-		}
-		if (body.text && typeof body.text === 'object') {
-			outputData.textBody = (body.text as IDataObject).body;
+		// Detect Meta WhatsApp webhook format (original payload) vs flat/pre-processed format
+		if (body.object === 'whatsapp_business_account' && Array.isArray(body.entry)) {
+			// Original Meta WhatsApp webhook payload
+			const entries = body.entry as IDataObject[];
+			if (entries.length > 0) {
+				const entry = entries[0] as IDataObject;
+				const changes = entry.changes as IDataObject[] | undefined;
+				if (Array.isArray(changes) && changes.length > 0) {
+					const change = changes[0] as IDataObject;
+					const value = change.value as IDataObject | undefined;
+					if (value) {
+						// Extract metadata (phone_number_id, display_phone_number)
+						const metadata = value.metadata as IDataObject | undefined;
+						if (metadata) {
+							outputData.phoneNumberId = metadata.phone_number_id;
+							outputData.displayPhoneNumber = metadata.display_phone_number;
+						}
+
+						// Extract contact info
+						const contacts = value.contacts as IDataObject[] | undefined;
+						if (Array.isArray(contacts) && contacts.length > 0) {
+							const contact = contacts[0] as IDataObject;
+							outputData.contactWaId = contact.wa_id;
+							const profile = contact.profile as IDataObject | undefined;
+							if (profile) {
+								outputData.contactName = profile.name;
+							}
+						}
+
+						// Extract message fields
+						const messages = value.messages as IDataObject[] | undefined;
+						if (Array.isArray(messages) && messages.length > 0) {
+							const message = messages[0] as IDataObject;
+							outputData.from = message.from;
+							outputData.messageId = message.id;
+							outputData.messageType = message.type;
+							outputData.timestamp = message.timestamp;
+							if (message.text && typeof message.text === 'object') {
+								outputData.textBody = (message.text as IDataObject).body;
+							}
+						}
+
+						// Extract statuses if present (delivery receipts)
+						const statuses = value.statuses as IDataObject[] | undefined;
+						if (Array.isArray(statuses) && statuses.length > 0) {
+							outputData.statuses = statuses;
+						}
+					}
+				}
+			}
+		} else {
+			// Flat / pre-processed payload (backward compatible)
+			if (body.from) {
+				outputData.from = body.from;
+			}
+			if (body.type) {
+				outputData.messageType = body.type;
+			}
+			if (body.timestamp) {
+				outputData.timestamp = body.timestamp;
+			}
+			if (body.text && typeof body.text === 'object') {
+				outputData.textBody = (body.text as IDataObject).body;
+			}
 		}
 
 		const returnItem: INodeExecutionData = {
