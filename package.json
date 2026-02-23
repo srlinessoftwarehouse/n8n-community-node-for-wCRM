@@ -1,6 +1,6 @@
 {
 	"name": "n8n-nodes-wcrm",
-	"version": "0.1.0",
+	"version": "1.0.2",
 	"description": "n8n community node for wCRM WhatsApp Cloud API",
 	"keywords": [
 		"n8n-community-node-package",
@@ -16,6 +16,9 @@
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/srlinespk/n8n-community-node-for-wCRM.git"
+	},
+	"publishConfig": {
+		"access": "public"
 	},
 	"main": "index.js",
 	"scripts": {

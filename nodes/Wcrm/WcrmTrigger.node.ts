@@ -33,19 +33,31 @@ export class WcrmTrigger implements INodeType {
 				name: 'default',
 				httpMethod: 'POST',
 				responseMode: 'onReceived',
-				path: 'wcrm-webhook',
+				path: '={{$parameter["webhookPath"]}}',
 			},
 		],
 		properties: [
 			{
 				displayName:
 					'This node listens for incoming WhatsApp messages forwarded by wCRM to your n8n webhook URL.<br><br>' +
+					'<b>Webhook URL:</b><br>' +
+					'Production: <code>https://&lt;your-domain&gt;/webhook/&lt;webhook-path&gt;</code><br>' +
+					'Test: <code>https://&lt;your-domain&gt;/webhook-test/&lt;webhook-path&gt;</code><br><br>' +
 					'<b>Callback URI Setup:</b><br>' +
 					'If you are using the <b>SRLINES n8n instance</b>, your callback URI is already configured — no action needed.<br><br>' +
-					'If you are self-hosting n8n, provide your webhook URL (shown below after activating the workflow) to <b>SRLINES support</b> so they can configure it in your wCRM account.',
+					'If you are self-hosting n8n, copy your webhook URL (shown above the node after activating the workflow) and provide it to <b>SRLINES support</b> so they can configure it in your wCRM account.<br><br>' +
+					'<b>Note:</b> Make sure <code>N8N_COMMUNITY_PACKAGES_ENABLED=true</code> is set in your n8n environment variables.',
 				name: 'notice',
 				type: 'notice',
 				default: '',
+			},
+			{
+				displayName: 'Webhook Path',
+				name: 'webhookPath',
+				type: 'string',
+				default: 'wcrm-webhook',
+				required: true,
+				description: 'The path segment used in the webhook URL. Change this to a unique value if you have multiple wCRM Trigger workflows to avoid conflicts.',
 			},
 			{
 				displayName: 'Store Incoming Messages',
@@ -106,7 +118,11 @@ export class WcrmTrigger implements INodeType {
 			staticData.messages = messages;
 		}
 
+		const webhookUrl = this.getNodeWebhookUrl('default');
+
 		const outputData: IDataObject = {
+			webhookId: this.getNode().id,
+			webhookUrl: webhookUrl ?? '',
 			headers: req.headers as IDataObject,
 			body,
 		};
