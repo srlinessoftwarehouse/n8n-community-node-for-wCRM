@@ -57,7 +57,8 @@ export class WcrmTrigger implements INodeType {
 				type: 'string',
 				default: 'wcrm-webhook',
 				required: true,
-				description: 'The path segment used in the webhook URL. Change this to a unique value if you have multiple wCRM Trigger workflows to avoid conflicts.',
+				placeholder: 'e.g. wcrm-webhook-project1',
+				description: 'The path segment used in the webhook URL. Use lowercase letters, numbers, and hyphens only (e.g., wcrm-webhook-project1). Change this to a unique value if you have multiple wCRM Trigger workflows to avoid conflicts.',
 			},
 			{
 				displayName: 'Store Incoming Messages',
