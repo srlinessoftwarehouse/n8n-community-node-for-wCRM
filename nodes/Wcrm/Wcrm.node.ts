@@ -45,6 +45,11 @@ export class Wcrm implements INodeType {
 						description: 'Send a WhatsApp message',
 					},
 					{
+						name: 'Message Store',
+						value: 'messageStore',
+						description: 'Manage stored incoming messages for chatbot reference',
+					},
+					{
 						name: 'Template',
 						value: 'template',
 						description: 'Send a WhatsApp template message',
@@ -135,6 +140,81 @@ export class Wcrm implements INodeType {
 					},
 				],
 				default: 'sendTemplate',
+			},
+
+			// ----------------------------------
+			//         Message Store Operations
+			// ----------------------------------
+			{
+				displayName: 'Operation',
+				name: 'operation',
+				type: 'options',
+				noDataExpression: true,
+				displayOptions: {
+					show: {
+						resource: ['messageStore'],
+					},
+				},
+				options: [
+					{
+						name: 'Get All Messages',
+						value: 'getAllMessages',
+						description: 'Retrieve all stored incoming messages',
+						action: 'Retrieve all stored messages',
+					},
+					{
+						name: 'Get Messages by Phone',
+						value: 'getMessagesByPhone',
+						description: 'Retrieve stored messages filtered by sender phone number',
+						action: 'Get messages by phone number',
+					},
+					{
+						name: 'Save Message',
+						value: 'saveMessage',
+						description: 'Manually save a message payload to the internal store',
+						action: 'Save a message to the store',
+					},
+					{
+						name: 'Clear Messages',
+						value: 'clearMessages',
+						description: 'Clear all stored messages',
+						action: 'Clear all stored messages',
+					},
+				],
+				default: 'getAllMessages',
+			},
+
+			// ----------------------------------
+			//         Message Store Fields
+			// ----------------------------------
+			{
+				displayName: 'Phone Number',
+				name: 'filterPhone',
+				type: 'string',
+				default: '',
+				required: true,
+				placeholder: 'e.g. +1234567890',
+				description: 'Filter messages by this sender phone number',
+				displayOptions: {
+					show: {
+						resource: ['messageStore'],
+						operation: ['getMessagesByPhone'],
+					},
+				},
+			},
+			{
+				displayName: 'Message Payload (JSON)',
+				name: 'messagePayload',
+				type: 'json',
+				default: '{}',
+				required: true,
+				description: 'The message payload to store. You can pass the raw incoming message body here.',
+				displayOptions: {
+					show: {
+						resource: ['messageStore'],
+						operation: ['saveMessage'],
+					},
+				},
 			},
 
 			// ----------------------------------
@@ -458,9 +538,9 @@ export class Wcrm implements INodeType {
 		for (let i = 0; i < items.length; i++) {
 			try {
 				let responseData: IDataObject;
-				const to = this.getNodeParameter('to', i) as string;
 
 				if (resource === 'message') {
+					const to = this.getNodeParameter('to', i) as string;
 					let messageObject: IDataObject = {};
 
 					if (operation === 'sendText') {
@@ -575,6 +655,7 @@ export class Wcrm implements INodeType {
 						messageObject,
 					});
 				} else if (resource === 'template') {
+					const to = this.getNodeParameter('to', i) as string;
 					const templateName = this.getNodeParameter('templateName', i) as string;
 					const templateVariablesJson = this.getNodeParameter('templateVariables', i) as string;
 					const mediaUri = this.getNodeParameter('mediaUri', i) as string;
@@ -599,6 +680,62 @@ export class Wcrm implements INodeType {
 					}
 
 					responseData = await wcrmApiRequest.call(this, 'POST', '/send_templet', body);
+				} else if (resource === 'messageStore') {
+					const staticData = this.getWorkflowStaticData('node');
+					if (!staticData.messages) {
+						staticData.messages = [];
+					}
+					const messages = staticData.messages as IDataObject[];
+
+					if (operation === 'getAllMessages') {
+						responseData = {
+							success: true,
+							count: messages.length,
+							messages,
+						};
+					} else if (operation === 'getMessagesByPhone') {
+						const filterPhone = this.getNodeParameter('filterPhone', i) as string;
+						const filtered = messages.filter((msg) => {
+							const payload = msg.payload as IDataObject | undefined;
+							return payload && payload.from === filterPhone;
+						});
+						responseData = {
+							success: true,
+							count: filtered.length,
+							phone: filterPhone,
+							messages: filtered,
+						};
+					} else if (operation === 'saveMessage') {
+						const messagePayloadJson = this.getNodeParameter('messagePayload', i) as string;
+						let payload: IDataObject;
+						try {
+							payload = typeof messagePayloadJson === 'string'
+								? JSON.parse(messagePayloadJson)
+								: messagePayloadJson;
+						} catch {
+							throw new NodeOperationError(this.getNode(), 'Invalid JSON in Message Payload field', { itemIndex: i });
+						}
+						const storedMessage: IDataObject = {
+							id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+							savedAt: new Date().toISOString(),
+							payload,
+						};
+						messages.push(storedMessage);
+						staticData.messages = messages;
+						responseData = {
+							success: true,
+							message: 'Message saved successfully',
+							stored: storedMessage,
+						};
+					} else if (operation === 'clearMessages') {
+						staticData.messages = [];
+						responseData = {
+							success: true,
+							message: 'All stored messages have been cleared',
+						};
+					} else {
+						throw new NodeOperationError(this.getNode(), `Unknown operation: ${operation}`, { itemIndex: i });
+					}
 				} else {
 					throw new NodeOperationError(this.getNode(), `Unknown resource: ${resource}`, { itemIndex: i });
 				}
