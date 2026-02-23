@@ -1,0 +1,194 @@
+please generate / build n8n community node for my WhatsApp Cloud API name wCRM. and make it 100% complaint and compatible with n8n standards.
+
+------------------
+
+my whatsapp cloud api crm api endpoint documentation;
+
+1. Send a POST request to:
+https://crm.srlines.net/api/v1/send-message?token=API_KEYS
+2. Include the following token in the request:
+API_KEYS
+3:- Send object as body
+{
+    messageObject: {...object}
+}
+👉🏻 Success response
+
+{
+    success: true,
+    message: "Message sent successfully!"
+}
+👉🏻 Not success response
+
+{
+    success: false,
+    message: "<REASON>"
+}
+-------------------------
+now message types
+-------------------------
+{
+    "to": "18876656789",
+    "type": "text",
+    "text": {
+        "preview_url": false,
+        "body": "text-message-content"
+    }
+}
+
+{
+    "to": "18876656789",
+    "type": "image",
+    "image": {
+        "link": "http(s)://image-url"
+    }
+}
+
+{
+    "to": "18876656789",
+    "type": "audio",
+    "audio": {
+        "link": "http(s)://audio-url"
+    }
+}
+
+{
+    "to": "18876656789",
+    "type": "document",
+    "document": {
+        "link": "<http(s)://document-url>",
+        "caption": "<DOCUMENT_CAPTION_TEXT>"
+    }
+}
+
+{
+    "to": "18876656789",
+    "type": "video",
+    "video": {
+        "link": "<http(s)://video-url>",
+        "caption": "<VIDEO_CAPTION_TEXT>"
+    }
+}
+
+{
+    "to": "18876656789",
+    "type": "interactive",
+    "interactive": {
+        "type": "list",
+        "header": {
+            "type": "text",
+            "text": "<HEADER_TEXT>"
+        },
+        "body": {
+            "text": "<BODY_TEXT>"
+        },
+        "footer": {
+            "text": "<FOOTER_TEXT>"
+        },
+        "action": {
+            "button": "<BUTTON_TEXT>",
+            "sections": [
+                {
+                    "title": "<LIST_SECTION_1_TITLE>",
+                    "rows": [
+                        {
+                            "id": "<LIST_SECTION_1_ROW_1_ID>",
+                            "title": "<SECTION_1_ROW_1_TITLE>",
+                            "description": "<SECTION_1_ROW_1_DESC>"
+                        },
+                        {
+                            "id": "<LIST_SECTION_1_ROW_2_ID>",
+                            "title": "<SECTION_1_ROW_2_TITLE>",
+                            "description": "<SECTION_1_ROW_2_DESC>"
+                        }
+                    ]
+                },
+                {
+                    "title": "<LIST_SECTION_2_TITLE>",
+                    "rows": [
+                        {
+                            "id": "<LIST_SECTION_2_ROW_1_ID>",
+                            "title": "<SECTION_2_ROW_1_TITLE>",
+                            "description": "<SECTION_2_ROW_1_DESC>"
+                        },
+                        {
+                            "id": "<LIST_SECTION_2_ROW_2_ID>",
+                            "title": "<SECTION_2_ROW_2_TITLE>",
+                            "description": "<SECTION_2_ROW_2_DESC>"
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}
+
+{
+    "to": "18876656789",
+    "type": "interactive",
+    "interactive": {
+        "type": "button",
+        "body": {
+            "text": "<BUTTON_TEXT>"
+        },
+        "action": {
+            "buttons": [
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "<UNIQUE_BUTTON_ID_1>",
+                        "title": "<BUTTON_TITLE_1>"
+                    }
+                },
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "<UNIQUE_BUTTON_ID_2>",
+                        "title": "<BUTTON_TITLE_2>"
+                    }
+                }
+            ]
+        }
+    }
+}
+
+------------------------
+and now template message
+-----------------------
+
+1. Send a POST request to:
+
+POST /api/v1/send_templet HTTP/1.1
+Host: https://crm.srlines.net/api/v1/send_templet
+Content-Type: application/json
+Authorization: Bearer API_KEY
+
+{
+  "sendTo": "+1234567890",
+  "templetName": "YourTemplateName",
+  "exampleArr": ["example_key_1", "example_key_2"],
+  "token": "YourAPIToken",
+  "mediaUri": "OptionalMediaUri"
+}
+  
+Parameters:
+sendTo: The recipient's phone number (e.g., +923339776136).
+templetName: The name of the template you want to send.
+exampleArr: An array of key-value pairs to populate the template.
+token:Your API token for authorization.
+mediaUri: (Optional) URI of the media to be attached to the message.
+Example Response:
+{
+  "success": true,
+  "metaResponse": {
+    "message_id": "message_id_here",
+    "status": "sent"
+  }
+}
+
+--------------------
+note API KEY, API KEYS & TOKEN | YOUR TOKEN is same and only one key being use everywhere,
+however in n8n community node credential web ui need to save only one key with name/label API KEY and call/use it every where
+------------------- 
+
+based on my whatsapp cloud api access endpoints, generate/build comprehensive and ultimate n8n community node and it's credential web ui and basic usage instructions in node web ui.
