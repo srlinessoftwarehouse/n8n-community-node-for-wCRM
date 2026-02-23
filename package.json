@@ -1,0 +1,52 @@
+{
+	"name": "n8n-nodes-wcrm",
+	"version": "0.1.0",
+	"description": "n8n community node for wCRM WhatsApp Cloud API",
+	"keywords": [
+		"n8n-community-node-package",
+		"whatsapp",
+		"wcrm",
+		"messaging"
+	],
+	"license": "MIT",
+	"homepage": "",
+	"author": {
+		"name": "srlines"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/srlinespk/n8n-community-node-for-wCRM.git"
+	},
+	"main": "index.js",
+	"scripts": {
+		"build": "tsc && gulp build:icons",
+		"dev": "tsc --watch",
+		"format": "prettier nodes credentials --write",
+		"lint": "eslint nodes credentials package.json",
+		"lintfix": "eslint nodes credentials package.json --fix",
+		"prepublishOnly": "npm run build"
+	},
+	"files": [
+		"dist"
+	],
+	"n8n": {
+		"n8nNodesApiVersion": 1,
+		"credentials": [
+			"dist/credentials/WcrmApi.credentials.js"
+		],
+		"nodes": [
+			"dist/nodes/Wcrm/Wcrm.node.js"
+		]
+	},
+	"devDependencies": {
+		"@typescript-eslint/parser": "~7.0.2",
+		"eslint": "~8.56.0",
+		"gulp": "^4.0.2",
+		"n8n-workflow": "*",
+		"prettier": "~3.2.5",
+		"typescript": "~5.3.3"
+	},
+	"peerDependencies": {
+		"n8n-workflow": "*"
+	}
+}
