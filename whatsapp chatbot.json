@@ -7,7 +7,10 @@
       "name": "📩 1. Incoming Message Trigger",
       "type": "n8n-nodes-wcrm.wcrmTrigger",
       "typeVersion": 1,
-      "position": [-2400, 400],
+      "position": [
+        -2400,
+        400
+      ],
       "webhookId": "wcrm-ultimate-chatbot-prod",
       "retryOnFail": true,
       "alwaysOutputData": true,
@@ -27,7 +30,10 @@
       "name": "🔧 2. Comprehensive Parser",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-2200, 400]
+      "position": [
+        -2200,
+        400
+      ]
     },
     {
       "parameters": {
@@ -38,18 +44,24 @@
       "name": "🧠 3. Advanced Memory",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-2000, 400]
+      "position": [
+        -2000,
+        400
+      ]
     },
     {
       "parameters": {
-        "jsCode": "// ==========================================\n// NODE: Intelligent Intent Classifier\n// PURPOSE: Classify user intent with confidence scoring\n// FEATURES: Multi-intent detection, language detection, urgency detection\n// VERSION: 2.8.3 Compatible\n// ==========================================\n\nconst item = $input.first().json;\nconst message = (item.textBody || '').toLowerCase().trim();\nconst isNew = item.isNewConversation || false;\nconst session = item.session || {};\n\n// Initialize classification object\nconst classification = {\n  primaryIntent: 'unknown',\n  secondaryIntents: [],\n  confidence: 0,\n  language: 'en',\n  isUrgent: false,\n  isQuestion: false,\n  containsContactInfo: false,\n  detectedEntities: {},\n  suggestedAction: 'respond',\n  priority: 'normal' // low, normal, high, urgent\n};\n\n// Detect language (simplified)\nconst urduIndicators = ['hai', 'ky', 'sy', 'hy', 'aur', 'ap', 'main', 'kya', 'yeh', 'nhi', 'sakte', 'ga', 'gi', 'lye'];\nconst romanUrduCount = urduIndicators.filter(word => message.includes(word)).length;\nif (romanUrduCount >= 2) {\n  classification.language = 'urdu';\n}\n\n// Check if it's a question\nconst questionIndicators = ['?', 'what', 'how', 'why', 'when', 'where', 'which', 'can you', 'could you', 'is it', 'are you'];\nclassification.isQuestion = questionIndicators.some(indicator => message.includes(indicator));\n\n// Check for urgency\nconst urgentIndicators = ['urgent', 'asap', 'immediately', 'emergency', 'quick', 'fast', 'hurry', 'as soon as possible', 'critical'];\nclassification.isUrgent = urgentIndicators.some(word => message.includes(word));\nclassification.priority = classification.isUrgent ? 'urgent' : 'normal';\n\n// Define intents with keywords and weights\nconst intents = [\n  {\n    name: 'greeting',\n    keywords: ['hi', 'hello', 'hey', 'salam', 'assalam', 'good morning', 'good evening', 'good afternoon', 'howdy', 'greetings'],\n    weight: 1.0,\n    action: 'welcome'\n  },\n  {\n    name: 'pricing',\n    keywords: ['price', 'cost', 'plan', 'package', 'rs', 'rupees', '999', '2499', '7497', '24999', 'how much', 'fee', 'charges', 'pricing', 'rates', 'subscription', 'pay', 'payment'],\n    weight: 0.9,\n    action: 'provide_pricing'\n  },\n  {\n    name: 'demo',\n    keywords: ['demo', 'trial', 'free', 'test', 'try', 'sample', 'evaluate', 'test drive', 'sign up', 'register', 'create account', 'get started', 'start now', 'credit card', 'verify'],\n    weight: 0.9,\n    action: 'provide_demo_steps'\n  },\n  {\n    name: 'requirements',\n    keywords: ['require', 'need', 'prerequisite', 'facebook', 'website', 'blog', 'whatsapp business', 'account', 'onboard', 'setup', 'installation', 'prepare', 'need to have', 'must have', 'condition'],\n    weight: 0.85,\n    action: 'provide_requirements'\n  },\n  {\n    name: 'human',\n    keywords: ['human', 'agent', 'person', 'representative', 'speak', 'talk', 'call', 'contact', 'phone', 'number', 'live', 'support', 'customer service', 'real person', 'talk to someone', '+92 333 9776136'],\n    weight: 1.0,\n    action: 'escalate_to_human'\n  },\n  {\n    name: 'mobile_app',\n    keywords: ['app', 'application', 'android', 'mobile', 'phone app', 'tiktok', 'video tutorial', 'guide', 'how to use app', 'download app'],\n    weight: 0.8,\n    action: 'provide_app_info'\n  },\n  {\n    name: 'ctwa',\n    keywords: ['ctwa', 'attribution', 'portal', 'track', 'ad', 'ads', 'click to whatsapp', 'lead attribution', 'campaign tracking', 'facebook ads', 'instagram ads', 'roi'],\n    weight: 0.85,\n    action: 'provide_ctwa_info'\n  },\n  {\n    name: 'subscribe',\n    keywords: ['subscribe', 'subscription', 'after demo', 'how to subscribe', 'become member', 'join', 'upgrade', 'purchase', 'buy now', 'activate', 'youtube', 'watch'],\n    weight: 0.8,\n    action: 'provide_subscribe_guide'\n  },\n  {\n    name: 'support',\n    keywords: ['support', 'help', 'issue', 'problem', 'not working', 'broken', 'error', 'bug', 'trouble', 'difficulty', 'stuck', 'can\'t', 'cannot', 'unable', 'doesn\'t work'],\n    weight: 0.9,\n    action: 'provide_support'\n  },\n  {\n    name: 'feature',\n    keywords: ['feature', 'capability', 'function', 'what can', 'does it', 'tell me about', 'overview', 'benefits', 'advantages', 'what is', 'explain'],\n    weight: 0.7,\n    action: 'provide_features'\n  },\n  {\n    name: 'integration',\n    keywords: ['integrate', 'integration', 'connect', 'shopify', 'woocommerce', 'plugin', 'api', 'webhook', 'sync', 'third party', 'external'],\n    weight: 0.8,\n    action: 'provide_integration_info'\n  },\n  {\n    name: 'thanks',\n    keywords: ['thanks', 'thank you', 'appreciate', 'grateful', 'good bye', 'bye', 'see you', 'talk later', 'that\'s all'],\n    weight: 0.7,\n    action: 'acknowledge'\n  }\n];\n\n// Score each intent\nconst scores = {};\nintents.forEach(intent => {\n  let score = 0;\n  intent.keywords.forEach(keyword => {\n    if (message.includes(keyword)) {\n      score += intent.weight;\n    }\n  });\n  scores[intent.name] = score;\n});\n\n// Find primary intent (highest score)\nlet highestScore = 0;\nlet primaryIntent = 'unknown';\nlet primaryAction = 'provide_help_menu';\n\nfor (const [intentName, score] of Object.entries(scores)) {\n  if (score > highestScore) {\n    highestScore = score;\n    primaryIntent = intentName;\n    const intentObj = intents.find(i => i.name === intentName);\n    primaryAction = intentObj ? intentObj.action : 'provide_help_menu';\n  }\n}\n\n// Find secondary intents (scores > 0 but not primary)\nconst secondaryIntents = [];\nfor (const [intentName, score] of Object.entries(scores)) {\n  if (score > 0 && intentName !== primaryIntent) {\n    secondaryIntents.push(intentName);\n  }\n}\n\n// Special handling for new conversations\nif (isNew && highestScore === 0) {\n  primaryIntent = 'greeting';\n  primaryAction = 'welcome';\n  highestScore = 0.9;\n}\n\n// Calculate confidence (normalize score)\nconst maxPossibleScore = Math.max(...intents.map(i => i.weight * i.keywords.length));\nclassification.confidence = Math.min(0.95, highestScore / (maxPossibleScore || 1));\n\n// Set classification results\nclassification.primaryIntent = primaryIntent;\nclassification.secondaryIntents = secondaryIntents.slice(0, 3); // Keep top 3\nclassification.suggestedAction = primaryAction;\n\n// Extract entities (simple pattern matching)\nif (message.match(/\\b\\d{10,13}\\b/)) {\n  classification.detectedEntities.phoneNumber = message.match(/\\b\\d{10,13}\\b/)[0];\n  classification.containsContactInfo = true;\n}\n\nif (message.match(/[\\w.-]+@[\\w.-]+\\.\\w+/)) {\n  classification.detectedEntities.email = message.match(/[\\w.-]+@[\\w.-]+\\.\\w+/)[0];\n  classification.containsContactInfo = true;\n}\n\n// Check for price mentions\nconst priceMatch = message.match(/rs\\.?\\s*(\\d+)|(\\d+)\\s*rupees/i);\nif (priceMatch) {\n  classification.detectedEntities.mentionedPrice = priceMatch[1] || priceMatch[2];\n}\n\n// Return enriched data\nreturn [{\n  json: {\n    ...item,\n    classification: classification,\n    intent: classification.primaryIntent,\n    confidence: classification.confidence,\n    suggestedAction: classification.suggestedAction,\n    isUrgent: classification.isUrgent,\n    priority: classification.priority\n  }\n}];",
+        "jsCode": "// ==========================================\n// NODE: Intelligent Intent Classifier\n// PURPOSE: Classify user intent with confidence scoring\n// FEATURES: Multi-intent detection, language detection, urgency detection\n// VERSION: 2.8.3 Compatible\n// ==========================================\n\nconst item = $input.first().json;\nconst message = (item.textBody || '').toLowerCase().trim();\nconst isNew = item.isNewConversation || false;\nconst session = item.session || {};\n\n// Initialize classification object\nconst classification = {\n  primaryIntent: 'unknown',\n  secondaryIntents: [],\n  confidence: 0,\n  language: 'en',\n  isUrgent: false,\n  isQuestion: false,\n  containsContactInfo: false,\n  detectedEntities: {},\n  suggestedAction: 'respond',\n  priority: 'normal' // low, normal, high, urgent\n};\n\n// Detect language (simplified)\nconst urduIndicators = ['hai', 'ky', 'sy', 'hy', 'aur', 'ap', 'main', 'kya', 'yeh', 'nhi', 'sakte', 'ga', 'gi', 'lye'];\nconst romanUrduCount = urduIndicators.filter(word => message.includes(word)).length;\nif (romanUrduCount >= 2) {\n  classification.language = 'urdu';\n}\n\n// Check if it's a question\nconst questionIndicators = ['?', 'what', 'how', 'why', 'when', 'where', 'which', 'can you', 'could you', 'is it', 'are you'];\nclassification.isQuestion = questionIndicators.some(indicator => message.includes(indicator));\n\n// Check for urgency\nconst urgentIndicators = ['urgent', 'asap', 'immediately', 'emergency', 'quick', 'fast', 'hurry', 'as soon as possible', 'critical'];\nclassification.isUrgent = urgentIndicators.some(word => message.includes(word));\nclassification.priority = classification.isUrgent ? 'urgent' : 'normal';\n\n// Define intents with keywords and weights\nconst intents = [\n  {\n    name: 'greeting',\n    keywords: ['hi', 'hello', 'hey', 'salam', 'assalam', 'good morning', 'good evening', 'good afternoon', 'howdy', 'greetings'],\n    weight: 1.0,\n    action: 'welcome'\n  },\n  {\n    name: 'pricing',\n    keywords: ['price', 'cost', 'plan', 'package', 'rs', 'rupees', '999', '2499', '7497', '24999', 'how much', 'fee', 'charges', 'pricing', 'rates', 'subscription', 'pay', 'payment'],\n    weight: 0.9,\n    action: 'provide_pricing'\n  },\n  {\n    name: 'demo',\n    keywords: ['demo', 'trial', 'free', 'test', 'try', 'sample', 'evaluate', 'test drive', 'sign up', 'register', 'create account', 'get started', 'start now', 'credit card', 'verify'],\n    weight: 0.9,\n    action: 'provide_demo_steps'\n  },\n  {\n    name: 'requirements',\n    keywords: ['require', 'need', 'prerequisite', 'facebook', 'website', 'blog', 'whatsapp business', 'account', 'onboard', 'setup', 'installation', 'prepare', 'need to have', 'must have', 'condition'],\n    weight: 0.85,\n    action: 'provide_requirements'\n  },\n  {\n    name: 'human',\n    keywords: ['human', 'agent', 'person', 'representative', 'speak', 'talk', 'call', 'contact', 'phone', 'number', 'live', 'support', 'customer service', 'real person', 'talk to someone', '+92 333 9776136'],\n    weight: 1.0,\n    action: 'escalate_to_human'\n  },\n  {\n    name: 'mobile_app',\n    keywords: ['app', 'application', 'android', 'mobile', 'phone app', 'tiktok', 'video tutorial', 'guide', 'how to use app', 'download app'],\n    weight: 0.8,\n    action: 'provide_app_info'\n  },\n  {\n    name: 'ctwa',\n    keywords: ['ctwa', 'attribution', 'portal', 'track', 'ad', 'ads', 'click to whatsapp', 'lead attribution', 'campaign tracking', 'facebook ads', 'instagram ads', 'roi'],\n    weight: 0.85,\n    action: 'provide_ctwa_info'\n  },\n  {\n    name: 'subscribe',\n    keywords: ['subscribe', 'subscription', 'after demo', 'how to subscribe', 'become member', 'join', 'upgrade', 'purchase', 'buy now', 'activate', 'youtube', 'watch'],\n    weight: 0.8,\n    action: 'provide_subscribe_guide'\n  },\n  {\n    name: 'support',\n    keywords: ['support', 'help', 'issue', 'problem', 'not working', 'broken', 'error', 'bug', 'trouble', 'difficulty', 'stuck', \"can't\", 'cannot', 'unable', \"doesn't work\"],\n    weight: 0.9,\n    action: 'provide_support'\n  },\n  {\n    name: 'feature',\n    keywords: ['feature', 'capability', 'function', 'what can', 'does it', 'tell me about', 'overview', 'benefits', 'advantages', 'what is', 'explain'],\n    weight: 0.7,\n    action: 'provide_features'\n  },\n  {\n    name: 'integration',\n    keywords: ['integrate', 'integration', 'connect', 'shopify', 'woocommerce', 'plugin', 'api', 'webhook', 'sync', 'third party', 'external'],\n    weight: 0.8,\n    action: 'provide_integration_info'\n  },\n  {\n    name: 'thanks',\n    keywords: ['thanks', 'thank you', 'appreciate', 'grateful', 'good bye', 'bye', 'see you', 'talk later', \"that's all\"],\n    weight: 0.7,\n    action: 'acknowledge'\n  },\n  {\n    name: 'n8n',\n    keywords: ['n8n', 'automation', 'workflow', 'community node', 'node', 'automate', 'no code', 'low code'],\n    weight: 0.85,\n    action: 'provide_n8n_info'\n  }\n];\n\n// Score each intent\nconst scores = {};\nintents.forEach(intent => {\n  let score = 0;\n  intent.keywords.forEach(keyword => {\n    if (message.includes(keyword)) {\n      score += intent.weight;\n    }\n  });\n  scores[intent.name] = score;\n});\n\n// Find primary intent (highest score)\nlet highestScore = 0;\nlet primaryIntent = 'unknown';\nlet primaryAction = 'provide_help_menu';\n\nfor (const [intentName, score] of Object.entries(scores)) {\n  if (score > highestScore) {\n    highestScore = score;\n    primaryIntent = intentName;\n    const intentObj = intents.find(i => i.name === intentName);\n    primaryAction = intentObj ? intentObj.action : 'provide_help_menu';\n  }\n}\n\n// Find secondary intents (scores > 0 but not primary)\nconst secondaryIntents = [];\nfor (const [intentName, score] of Object.entries(scores)) {\n  if (score > 0 && intentName !== primaryIntent) {\n    secondaryIntents.push(intentName);\n  }\n}\n\n// Special handling for new conversations\nif (isNew && highestScore === 0) {\n  primaryIntent = 'greeting';\n  primaryAction = 'welcome';\n  highestScore = 0.9;\n}\n\n// Calculate confidence (normalize score)\nconst maxPossibleScore = Math.max(...intents.map(i => i.weight * i.keywords.length));\nclassification.confidence = Math.min(0.95, highestScore / (maxPossibleScore || 1));\n\n// Set classification results\nclassification.primaryIntent = primaryIntent;\nclassification.secondaryIntents = secondaryIntents.slice(0, 3); // Keep top 3\nclassification.suggestedAction = primaryAction;\n\n// Extract entities (simple pattern matching)\nif (message.match(/\\b\\d{10,13}\\b/)) {\n  classification.detectedEntities.phoneNumber = message.match(/\\b\\d{10,13}\\b/)[0];\n  classification.containsContactInfo = true;\n}\n\nif (message.match(/[\\w.-]+@[\\w.-]+\\.\\w+/)) {\n  classification.detectedEntities.email = message.match(/[\\w.-]+@[\\w.-]+\\.\\w+/)[0];\n  classification.containsContactInfo = true;\n}\n\n// Check for price mentions\nconst priceMatch = message.match(/rs\\.?\\s*(\\d+)|(\\d+)\\s*rupees/i);\nif (priceMatch) {\n  classification.detectedEntities.mentionedPrice = priceMatch[1] || priceMatch[2];\n}\n\n// Return enriched data\nreturn [{\n  json: {\n    ...item,\n    classification: classification,\n    intent: classification.primaryIntent,\n    confidence: classification.confidence,\n    suggestedAction: classification.suggestedAction,\n    isUrgent: classification.isUrgent,\n    priority: classification.priority\n  }\n}];",
         "language": "javaScript"
       },
       "id": "intent-advanced",
       "name": "🎯 4. Advanced Intent Classifier",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-1800, 400]
+      "position": [
+        -1800,
+        400
+      ]
     },
     {
       "parameters": {
@@ -74,8 +86,11 @@
       "id": "router-urgent",
       "name": "🔀 5. Urgent?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [-1600, 200]
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        200
+      ]
     },
     {
       "parameters": {
@@ -100,8 +115,11 @@
       "id": "router-greeting",
       "name": "🔀 6. Greeting?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [-1600, 300]
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        300
+      ]
     },
     {
       "parameters": {
@@ -126,8 +144,11 @@
       "id": "router-pricing",
       "name": "🔀 7. Pricing?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [-1600, 380]
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        380
+      ]
     },
     {
       "parameters": {
@@ -152,8 +173,11 @@
       "id": "router-demo",
       "name": "🔀 8. Demo?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [-1600, 460]
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        460
+      ]
     },
     {
       "parameters": {
@@ -178,8 +202,11 @@
       "id": "router-requirements",
       "name": "🔀 9. Requirements?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [-1600, 540]
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        540
+      ]
     },
     {
       "parameters": {
@@ -204,8 +231,11 @@
       "id": "router-human",
       "name": "🔀 10. Human?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [-1600, 620]
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        620
+      ]
     },
     {
       "parameters": {
@@ -230,8 +260,11 @@
       "id": "router-mobile",
       "name": "🔀 11. Mobile App?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [-1600, 700]
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        700
+      ]
     },
     {
       "parameters": {
@@ -256,8 +289,11 @@
       "id": "router-ctwa",
       "name": "🔀 12. CTWA?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [-1600, 780]
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        780
+      ]
     },
     {
       "parameters": {
@@ -282,8 +318,11 @@
       "id": "router-subscribe",
       "name": "🔀 13. Subscribe?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [-1600, 860]
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        860
+      ]
     },
     {
       "parameters": {
@@ -308,8 +347,11 @@
       "id": "router-support",
       "name": "🔀 14. Support?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [-1600, 940]
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        940
+      ]
     },
     {
       "parameters": {
@@ -334,8 +376,11 @@
       "id": "router-feature",
       "name": "🔀 15. Feature?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [-1600, 1020]
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        1020
+      ]
     },
     {
       "parameters": {
@@ -360,8 +405,11 @@
       "id": "router-integration",
       "name": "🔀 16. Integration?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [-1600, 1100]
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        1100
+      ]
     },
     {
       "parameters": {
@@ -386,19 +434,27 @@
       "id": "router-thanks",
       "name": "🔀 17. Thanks?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [-1600, 1180]
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        1180
+      ]
     },
     {
       "parameters": {
         "to": "={{ $json.from }}",
-        "textBody": "=⚠️ *URGENT: Human Support Requested*\n\nI've detected this is urgent and immediately notified our team.\n\nSomeone will contact you within *15 minutes*.\n\nFor immediate assistance, you can also:\n📞 Call: +92 333 9776136\n📧 Email: support@srlines.net\n\nThank you for your patience. 🙏"
+        "textBody": "=⚠️ *URGENT: Human Support Requested*\n\nI've detected this is urgent and immediately notified our team.\n\nSomeone will contact you within *15 minutes*.\n\nFor immediate assistance, you can also:\n📞 Call: +92 333 9776136\n📧 Email: support@srlines.net\n\nThank you for your patience. 🙏",
+        "resource": "message",
+        "operation": "sendText"
       },
       "id": "send-urgent",
       "name": "💬 18. Send Urgent Response",
       "type": "n8n-nodes-wcrm.wcrm",
       "typeVersion": 1,
-      "position": [-1400, 200],
+      "position": [
+        -1400,
+        200
+      ],
       "credentials": {
         "wcrmApi": {
           "id": "SnyJoaaZ2MZV53oi",
@@ -409,13 +465,18 @@
     {
       "parameters": {
         "to": "={{ $json.from }}",
-        "textBody": "=👋 *Welcome to SR Lines!*\n\nAssalam-o-Alaikum *{{ $json.contactName }}*! 🙏\n\nThank you for reaching out to us. I'm your virtual assistant and I'm here to help with:\n\n━━━━━━━━━━━━━━━━━━━\n💰 *Pricing* - Plans & rates\n🎯 *Demo* - Start free trial\n📋 *Requirements* - What you need\n📞 *Human* - Talk to our team\n📱 *Mobile App* - Video tutorial\n📊 *CTWA* - Ad lead tracking\n⚙️ *Features* - What we offer\n🔌 *Integrations* - Shopify, WooCommerce\n━━━━━━━━━━━━━━━━━━━\n\nWhat would you like to know more about? Just type a keyword or question! 😊"
+        "textBody": "=👋 *Welcome to SR Lines!*\n\nAssalam-o-Alaikum *{{ $json.contactName }}*! 🙏\n\nThank you for reaching out to us. I'm your virtual assistant powered by *wCRM* — an official *n8n community node* for WhatsApp Cloud API. 🚀\n\nI'm here to help with:\n\n━━━━━━━━━━━━━━━━━━━\n💰 *Pricing* - Plans & rates\n🎯 *Demo* - Start free trial\n📋 *Requirements* - What you need\n📞 *Human* - Talk to our team\n📱 *Mobile App* - Video tutorial\n📊 *CTWA* - Ad lead tracking\n⚙️ *Features* - What we offer\n🔌 *Integrations* - Shopify, WooCommerce\n🤖 *n8n* - Learn about n8n automation\n━━━━━━━━━━━━━━━━━━━\n\nWhat would you like to know more about? Just type a keyword or question! 😊",
+        "resource": "message",
+        "operation": "sendText"
       },
       "id": "send-welcome",
       "name": "💬 19. Send Welcome",
       "type": "n8n-nodes-wcrm.wcrm",
       "typeVersion": 1,
-      "position": [-1400, 300],
+      "position": [
+        -1400,
+        300
+      ],
       "credentials": {
         "wcrmApi": {
           "id": "SnyJoaaZ2MZV53oi",
@@ -426,13 +487,18 @@
     {
       "parameters": {
         "to": "={{ $json.from }}",
-        "textBody": "=💰 *Our Pricing Plans (After 24-hr FREE Trial)*\n\n━━━━━━━━━━━━━━━━━━━\n📊 *10 Days:* Rs. 999\n━━━━━━━━━━━━━━━━━━━\n🏆 *1 Month:* Rs. 2,499 *(Most Popular)*\n━━━━━━━━━━━━━━━━━━━\n📈 *3 Months:* Rs. 7,497\n━━━━━━━━━━━━━━━━━━━\n💎 *1 Year:* Rs. 24,999 *(Best Value)*\n━━━━━━━━━━━━━━━━━━━\n\n✅ *All plans include:*\n✓ Full WhatsApp CRM access\n✓ n8n automation integration\n✓ AI chatbot capabilities\n✓ 24/7 technical support\n✓ Regular updates\n\n🎯 Ready to start? Type *demo* to begin your free trial!\n\n📞 Have questions? Type *human* to talk to our team."
+        "textBody": "=💰 *Our Pricing Plans (After 24-hr FREE Trial)*\n\n━━━━━━━━━━━━━━━━━━━\n📊 *10 Days:* Rs. 999\n━━━━━━━━━━━━━━━━━━━\n🏆 *1 Month:* Rs. 2,499 *(Most Popular)*\n━━━━━━━━━━━━━━━━━━━\n📈 *3 Months:* Rs. 7,497\n━━━━━━━━━━━━━━━━━━━\n💎 *1 Year:* Rs. 24,999 *(Best Value)*\n━━━━━━━━━━━━━━━━━━━\n\n✅ *All plans include:*\n✓ Full WhatsApp CRM access\n✓ n8n automation integration\n✓ AI chatbot capabilities\n✓ 24/7 technical support\n✓ Regular updates\n\n🎯 Ready to start? Type *demo* to begin your free trial!\n\n📞 Have questions? Type *human* to talk to our team.",
+        "resource": "message",
+        "operation": "sendText"
       },
       "id": "send-pricing",
       "name": "💬 20. Send Pricing",
       "type": "n8n-nodes-wcrm.wcrm",
       "typeVersion": 1,
-      "position": [-1400, 380],
+      "position": [
+        -1400,
+        380
+      ],
       "credentials": {
         "wcrmApi": {
           "id": "SnyJoaaZ2MZV53oi",
@@ -443,13 +509,18 @@
     {
       "parameters": {
         "to": "={{ $json.from }}",
-        "textBody": "=✅ *Start Your Free Demo in 4 Simple Steps*\n\n━━━━━━━━━━━━━━━━━━━\n🔹 *Step 1:* Sign up (no credit card required)\n   👉 https://crm.srlines.net/user\n\n🔹 *Step 2:* Verify your email address\n\n🔹 *Step 3:* Go to User Menu → Meta API Keys → Connect WhatsApp\n\n🔹 *Step 4:* Complete the setup wizard & subscribe to the Free Trial Plan\n━━━━━━━━━━━━━━━━━━━\n\n📺 *Video Tutorial:* https://www.youtube.com/watch?v=I8hNRXo022k\n\n❓ Need help? Just ask or type *human* to talk to our team!"
+        "textBody": "=✅ *Start Your Free Demo in 4 Simple Steps*\n\n━━━━━━━━━━━━━━━━━━━\n🔹 *Step 1:* Sign up (no credit card required)\n   👉 https://crm.srlines.net/user\n\n🔹 *Step 2:* Verify your email address\n\n🔹 *Step 3:* Go to User Menu → Meta API Keys → Connect WhatsApp\n\n🔹 *Step 4:* Complete the setup wizard & subscribe to the Free Trial Plan\n━━━━━━━━━━━━━━━━━━━\n\n📺 *Video Tutorial:* https://www.youtube.com/watch?v=I8hNRXo022k\n\n❓ Need help? Just ask or type *human* to talk to our team!",
+        "resource": "message",
+        "operation": "sendText"
       },
       "id": "send-demo",
       "name": "💬 21. Send Demo Steps",
       "type": "n8n-nodes-wcrm.wcrm",
       "typeVersion": 1,
-      "position": [-1400, 460],
+      "position": [
+        -1400,
+        460
+      ],
       "credentials": {
         "wcrmApi": {
           "id": "SnyJoaaZ2MZV53oi",
@@ -460,13 +531,18 @@
     {
       "parameters": {
         "to": "={{ $json.from }}",
-        "textBody": "=📋 *Requirements to Get Started*\n\nBefore starting, please ensure you have:\n\n━━━━━━━━━━━━━━━━━━━\n1️⃣ *Facebook Account* (personal or business)\n\n2️⃣ *Website or Google Blog* (for verification)\n\n3️⃣ *WhatsApp Business mobile app account* with minimum age 3 months *OR* a mobile number without any WhatsApp account\n\n4️⃣ *Time:* Onboarding process takes 25~30 minutes\n━━━━━━━━━━━━━━━━━━━\n\n✅ Have everything ready? Type *demo* to begin!\n\n❓ Missing something? Type *human* and we'll guide you."
+        "textBody": "=📋 *Requirements to Get Started*\n\nBefore starting, please ensure you have:\n\n━━━━━━━━━━━━━━━━━━━\n1️⃣ *Facebook Account* (personal or business)\n\n2️⃣ *Website or Google Blog* (for verification)\n\n3️⃣ *WhatsApp Business mobile app account* with minimum age 3 months *OR* a mobile number without any WhatsApp account\n\n4️⃣ *Time:* Onboarding process takes 25~30 minutes\n━━━━━━━━━━━━━━━━━━━\n\n✅ Have everything ready? Type *demo* to begin!\n\n❓ Missing something? Type *human* and we'll guide you.",
+        "resource": "message",
+        "operation": "sendText"
       },
       "id": "send-requirements",
       "name": "💬 22. Send Requirements",
       "type": "n8n-nodes-wcrm.wcrm",
       "typeVersion": 1,
-      "position": [-1400, 540],
+      "position": [
+        -1400,
+        540
+      ],
       "credentials": {
         "wcrmApi": {
           "id": "SnyJoaaZ2MZV53oi",
@@ -477,13 +553,18 @@
     {
       "parameters": {
         "to": "={{ $json.from }}",
-        "textBody": "=💬 *Need Human Assistance?*\n\n━━━━━━━━━━━━━━━━━━━\n📱 *Chat with us live on WhatsApp:*\n+92 333 9776136\n\n⏰ *Response time:* Usually within 15-30 minutes\n\n📧 *Email:* support@srlines.net\n\n🌐 *Website:* https://crm.srlines.net\n━━━━━━━━━━━━━━━━━━━\n\nWhile you wait, feel free to ask me any questions! I can help with:\n💰 Pricing info\n🎯 Demo setup\n📋 Requirements\n📱 App tutorial\n\nHow can I assist you? 😊"
+        "textBody": "=💬 *Need Human Assistance?*\n\n━━━━━━━━━━━━━━━━━━━\n📱 *Chat with us live on WhatsApp:*\n+92 333 9776136\n\n⏰ *Response time:* Usually within 15-30 minutes\n\n📧 *Email:* support@srlines.net\n\n🌐 *Website:* https://crm.srlines.net\n━━━━━━━━━━━━━━━━━━━\n\nWhile you wait, feel free to ask me any questions! I can help with:\n💰 Pricing info\n🎯 Demo setup\n📋 Requirements\n📱 App tutorial\n\nHow can I assist you? 😊",
+        "resource": "message",
+        "operation": "sendText"
       },
       "id": "send-human",
       "name": "💬 23. Send Human Contact",
       "type": "n8n-nodes-wcrm.wcrm",
       "typeVersion": 1,
-      "position": [-1400, 620],
+      "position": [
+        -1400,
+        620
+      ],
       "credentials": {
         "wcrmApi": {
           "id": "SnyJoaaZ2MZV53oi",
@@ -494,13 +575,18 @@
     {
       "parameters": {
         "to": "={{ $json.from }}",
-        "textBody": "=📱 *Mobile App Video Tutorial*\n\nWatch how to use our Android app:\n🎥 https://www.tiktok.com/@srlines/video/7605489029362208018\n\n━━━━━━━━━━━━━━━━━━━\n*With our mobile app you can:*\n✅ Reply to WhatsApp chats on the go\n✅ View and manage leads\n✅ Track campaign performance\n✅ Access full CRM features\n✅ Get notifications for new messages\n━━━━━━━━━━━━━━━━━━━\n\n📲 Available on Android devices.\n\nHave questions about the app? Just ask! 😊"
+        "textBody": "=📱 *Mobile App Video Tutorial*\n\nWatch how to use our Android app:\n🎥 https://www.tiktok.com/@srlines/video/7605489029362208018\n\n━━━━━━━━━━━━━━━━━━━\n*With our mobile app you can:*\n✅ Reply to WhatsApp chats on the go\n✅ View and manage leads\n✅ Track campaign performance\n✅ Access full CRM features\n✅ Get notifications for new messages\n━━━━━━━━━━━━━━━━━━━\n\n📲 Available on Android devices.\n\nHave questions about the app? Just ask! 😊",
+        "resource": "message",
+        "operation": "sendText"
       },
       "id": "send-mobile",
       "name": "💬 24. Send Mobile App Tutorial",
       "type": "n8n-nodes-wcrm.wcrm",
       "typeVersion": 1,
-      "position": [-1400, 700],
+      "position": [
+        -1400,
+        700
+      ],
       "credentials": {
         "wcrmApi": {
           "id": "SnyJoaaZ2MZV53oi",
@@ -511,13 +597,18 @@
     {
       "parameters": {
         "to": "={{ $json.from }}",
-        "textBody": "=📊 *CTWA Leads Attribution Portal*\n\nTrack your Click-to-WhatsApp ad leads with precision!\n\n━━━━━━━━━━━━━━━━━━━\n🎥 *Full Tutorial:*\nhttps://youtu.be/jutXnusN_q0?si=ES1UzyPRAmZXRgn3\n━━━━━━━━━━━━━━━━━━━\n\n*Key Benefits:*\n✅ Know exactly which ad generated each lead\n✅ Track conversions from Facebook/Instagram ads\n✅ Optimize your ad spend for better ROI\n✅ See complete customer journey\n✅ Attribution reporting dashboard\n\nPerfect for businesses running WhatsApp ad campaigns! 📈\n\nWant to learn more? Type *human* to speak with our team!"
+        "textBody": "=📊 *CTWA Leads Attribution Portal*\n\nTrack your Click-to-WhatsApp ad leads with precision!\n\n━━━━━━━━━━━━━━━━━━━\n🎥 *Full Tutorial:*\nhttps://youtu.be/jutXnusN_q0?si=ES1UzyPRAmZXRgn3\n━━━━━━━━━━━━━━━━━━━\n\n*Key Benefits:*\n✅ Know exactly which ad generated each lead\n✅ Track conversions from Facebook/Instagram ads\n✅ Optimize your ad spend for better ROI\n✅ See complete customer journey\n✅ Attribution reporting dashboard\n\nPerfect for businesses running WhatsApp ad campaigns! 📈\n\nWant to learn more? Type *human* to speak with our team!",
+        "resource": "message",
+        "operation": "sendText"
       },
       "id": "send-ctwa",
       "name": "💬 25. Send CTWA Info",
       "type": "n8n-nodes-wcrm.wcrm",
       "typeVersion": 1,
-      "position": [-1400, 780],
+      "position": [
+        -1400,
+        780
+      ],
       "credentials": {
         "wcrmApi": {
           "id": "SnyJoaaZ2MZV53oi",
@@ -528,13 +619,18 @@
     {
       "parameters": {
         "to": "={{ $json.from }}",
-        "textBody": "=📺 *How to Subscribe After Your Demo*\n\nWatch this complete guide:\n👉 https://www.youtube.com/watch?v=I8hNRXo022k\n\n━━━━━━━━━━━━━━━━━━━\n*Quick Steps:*\n1️⃣ Complete your free trial period\n2️⃣ Log into your account at crm.srlines.net\n3️⃣ Go to Billing → Subscription\n4️⃣ Choose your preferred plan\n5️⃣ Enter payment details\n6️⃣ Activate your subscription\n━━━━━━━━━━━━━━━━━━━\n\n💰 *Plans:*\n• 10 Days: Rs. 999\n• 1 Month: Rs. 2,499\n• 3 Months: Rs. 7,497\n• 1 Year: Rs. 24,999\n\nNeed help? Contact us at +92 333 9776136"
+        "textBody": "=📺 *How to Subscribe After Your Demo*\n\nWatch this complete guide:\n👉 https://www.youtube.com/watch?v=I8hNRXo022k\n\n━━━━━━━━━━━━━━━━━━━\n*Quick Steps:*\n1️⃣ Complete your free trial period\n2️⃣ Log into your account at crm.srlines.net\n3️⃣ Go to Billing → Subscription\n4️⃣ Choose your preferred plan\n5️⃣ Enter payment details\n6️⃣ Activate your subscription\n━━━━━━━━━━━━━━━━━━━\n\n💰 *Plans:*\n• 10 Days: Rs. 999\n• 1 Month: Rs. 2,499\n• 3 Months: Rs. 7,497\n• 1 Year: Rs. 24,999\n\nNeed help? Contact us at +92 333 9776136",
+        "resource": "message",
+        "operation": "sendText"
       },
       "id": "send-subscribe",
       "name": "💬 26. Send Subscribe Guide",
       "type": "n8n-nodes-wcrm.wcrm",
       "typeVersion": 1,
-      "position": [-1400, 860],
+      "position": [
+        -1400,
+        860
+      ],
       "credentials": {
         "wcrmApi": {
           "id": "SnyJoaaZ2MZV53oi",
@@ -545,13 +641,18 @@
     {
       "parameters": {
         "to": "={{ $json.from }}",
-        "textBody": "=🔧 *Technical Support*\n\nI'm here to help! Here are common solutions:\n\n━━━━━━━━━━━━━━━━━━━\n📘 *Knowledge Base:* docs.srlines.net\n\n🔄 *n8n Workflow Help:* Check our templates at n8n.srlines.net\n\n📱 *App Issues:* Try clearing cache or reinstalling\n\n🔌 *Integration Help:* Connect Shopify, WooCommerce\n━━━━━━━━━━━━━━━━━━━\n\nIf you need immediate assistance, please describe your issue in detail and our support team will get back to you within 1 hour.\n\nIs there something specific you're having trouble with? 🤔"
+        "textBody": "=🔧 *Technical Support*\n\nI'm here to help! Here are common solutions:\n\n━━━━━━━━━━━━━━━━━━━\n📘 *Knowledge Base:* docs.srlines.net\n\n🔄 *n8n Workflow Help:* Check our templates at n8n.srlines.net\n\n📱 *App Issues:* Try clearing cache or reinstalling\n\n🔌 *Integration Help:* Connect Shopify, WooCommerce\n━━━━━━━━━━━━━━━━━━━\n\nIf you need immediate assistance, please describe your issue in detail and our support team will get back to you within 1 hour.\n\nIs there something specific you're having trouble with? 🤔",
+        "resource": "message",
+        "operation": "sendText"
       },
       "id": "send-support",
       "name": "💬 27. Send Support Info",
       "type": "n8n-nodes-wcrm.wcrm",
       "typeVersion": 1,
-      "position": [-1400, 940],
+      "position": [
+        -1400,
+        940
+      ],
       "credentials": {
         "wcrmApi": {
           "id": "SnyJoaaZ2MZV53oi",
@@ -562,13 +663,18 @@
     {
       "parameters": {
         "to": "={{ $json.from }}",
-        "textBody": "=✨ *Our Powerful Features*\n\nHere's everything our platform offers:\n\n━━━━━━━━━━━━━━━━━━━\n🤖 *AI Chatbot (OpenAI)* – Smart auto replies & human-like conversations\n\n📋 *Template Chatbot* – Ready-made flows for instant automation\n\n📥 *Unified Inbox* – Manage all WhatsApp chats in one dashboard\n\n🏷️ *Tags & Notes* – Track and organize every customer easily\n\n📞 *Phone Book* – Simple contact management system\n\n📣 *Broadcast Campaigns* – Send bulk WhatsApp messages in seconds\n\n🛍️ *Shopify Integration* – Auto sync store & customer data\n\n🛒 *WooCommerce Plugin* – Order & chat automation\n\n📱 *Android App* – Manage your business anytime, anywhere\n\n📊 *CTWA Leads Attribution Portal* – Track ad leads accurately\n━━━━━━━━━━━━━━━━━━━\n\n*Plus n8n Automation!*\nConnect 400+ apps with drag & drop workflows\n\nWhich feature interests you most? 👇"
+        "textBody": "=✨ *Our Powerful Features*\n\nHere's everything our platform offers:\n\n━━━━━━━━━━━━━━━━━━━\n🤖 *AI Chatbot (OpenAI)* – Smart auto replies & human-like conversations\n\n📋 *Template Chatbot* – Ready-made flows for instant automation\n\n📥 *Unified Inbox* – Manage all WhatsApp chats in one dashboard\n\n🏷️ *Tags & Notes* – Track and organize every customer easily\n\n📞 *Phone Book* – Simple contact management system\n\n📣 *Broadcast Campaigns* – Send bulk WhatsApp messages in seconds\n\n🛍️ *Shopify Integration* – Auto sync store & customer data\n\n🛒 *WooCommerce Plugin* – Order & chat automation\n\n📱 *Android App* – Manage your business anytime, anywhere\n\n📊 *CTWA Leads Attribution Portal* – Track ad leads accurately\n━━━━━━━━━━━━━━━━━━━\n\n*Plus n8n Automation!*\nConnect 400+ apps with drag & drop workflows\n\nWhich feature interests you most? 👇",
+        "resource": "message",
+        "operation": "sendText"
       },
       "id": "send-feature",
       "name": "💬 28. Send Features List",
       "type": "n8n-nodes-wcrm.wcrm",
       "typeVersion": 1,
-      "position": [-1400, 1020],
+      "position": [
+        -1400,
+        1020
+      ],
       "credentials": {
         "wcrmApi": {
           "id": "SnyJoaaZ2MZV53oi",
@@ -579,13 +685,18 @@
     {
       "parameters": {
         "to": "={{ $json.from }}",
-        "textBody": "=🔌 *Integrations Available*\n\nConnect your favorite platforms:\n\n━━━━━━━━━━━━━━━━━━━\n🛍️ *Shopify* – Auto sync store & customer data\n\n🛒 *WooCommerce* – Order & chat automation\n\n🤖 *n8n* – 400+ integrations via our automation platform\n\n📱 *WhatsApp* – Complete business API integration\n\n🌐 *Custom API* – Webhooks for any service\n━━━━━━━━━━━━━━━━━━━\n\nWith n8n, you can connect to:\n• Google Sheets, Gmail, Calendar\n• Slack, Discord, Telegram\n• HubSpot, Salesforce, Pipedrive\n• And 400+ more apps!\n\nNeed a specific integration? Let us know! 🔌"
+        "textBody": "=🔌 *Integrations Available*\n\nConnect your favorite platforms:\n\n━━━━━━━━━━━━━━━━━━━\n🛍️ *Shopify* – Auto sync store & customer data\n\n🛒 *WooCommerce* – Order & chat automation\n\n🤖 *n8n* – 400+ integrations via our automation platform\n\n📱 *WhatsApp* – Complete business API integration\n\n🌐 *Custom API* – Webhooks for any service\n━━━━━━━━━━━━━━━━━━━\n\nWith n8n, you can connect to:\n• Google Sheets, Gmail, Calendar\n• Slack, Discord, Telegram\n• HubSpot, Salesforce, Pipedrive\n• And 400+ more apps!\n\nNeed a specific integration? Let us know! 🔌",
+        "resource": "message",
+        "operation": "sendText"
       },
       "id": "send-integration",
       "name": "💬 29. Send Integration Info",
       "type": "n8n-nodes-wcrm.wcrm",
       "typeVersion": 1,
-      "position": [-1400, 1100],
+      "position": [
+        -1400,
+        1100
+      ],
       "credentials": {
         "wcrmApi": {
           "id": "SnyJoaaZ2MZV53oi",
@@ -596,13 +707,18 @@
     {
       "parameters": {
         "to": "={{ $json.from }}",
-        "textBody": "=🙏 *You're welcome!*\n\nI'm glad I could help! Is there anything else you'd like to know about our WhatsApp CRM platform?\n\n━━━━━━━━━━━━━━━━━━━\n*Quick links:*\n💰 Type *pricing* for plans\n🎯 Type *demo* to start trial\n📞 Type *human* to talk to team\n━━━━━━━━━━━━━━━━━━━\n\nHave a great day! 😊"
+        "textBody": "=🙏 *You're welcome!*\n\nI'm glad I could help! Is there anything else you'd like to know about our WhatsApp CRM platform?\n\n━━━━━━━━━━━━━━━━━━━\n*Quick links:*\n💰 Type *pricing* for plans\n🎯 Type *demo* to start trial\n📞 Type *human* to talk to team\n━━━━━━━━━━━━━━━━━━━\n\nHave a great day! 😊",
+        "resource": "message",
+        "operation": "sendText"
       },
       "id": "send-thanks",
       "name": "💬 30. Send Thanks Response",
       "type": "n8n-nodes-wcrm.wcrm",
       "typeVersion": 1,
-      "position": [-1400, 1180],
+      "position": [
+        -1400,
+        1180
+      ],
       "credentials": {
         "wcrmApi": {
           "id": "SnyJoaaZ2MZV53oi",
@@ -613,13 +729,18 @@
     {
       "parameters": {
         "to": "={{ $json.from }}",
-        "textBody": "=🤖 *I'm here to help!*\n\nI didn't quite understand your question. Here's what I can assist you with:\n\n━━━━━━━━━━━━━━━━━━━\n💰 Type *pricing* - See our plans\n🎯 Type *demo* - Start free trial\n📋 Type *requirements* - What you need\n📞 Type *human* - Talk to a person\n📱 Type *app* - Mobile app tutorial\n📊 Type *ctwa* - Ad lead tracking\n⚙️ Type *features* - Platform overview\n🔌 Type *integration* - Connect apps\n━━━━━━━━━━━━━━━━━━━\n\nOr just ask me a question in your own words! 😊"
+        "textBody": "=🤖 *I'm here to help!*\n\nI didn't quite understand your question. Here's what I can assist you with:\n\n━━━━━━━━━━━━━━━━━━━\n💰 Type *pricing* - See our plans\n🎯 Type *demo* - Start free trial\n📋 Type *requirements* - What you need\n📞 Type *human* - Talk to a person\n📱 Type *app* - Mobile app tutorial\n📊 Type *ctwa* - Ad lead tracking\n⚙️ Type *features* - Platform overview\n🔌 Type *integration* - Connect apps\n🤖 Type *n8n* - Learn about n8n automation\n━━━━━━━━━━━━━━━━━━━\n\nOr just ask me a question in your own words! 😊",
+        "resource": "message",
+        "operation": "sendText"
       },
       "id": "send-fallback",
       "name": "💬 31. Send Help Menu",
       "type": "n8n-nodes-wcrm.wcrm",
       "typeVersion": 1,
-      "position": [-1400, 1260],
+      "position": [
+        -1400,
+        1260
+      ],
       "credentials": {
         "wcrmApi": {
           "id": "SnyJoaaZ2MZV53oi",
@@ -636,7 +757,10 @@
       "name": "📝 32. wCRM Integration",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-1200, 400]
+      "position": [
+        -1200,
+        400
+      ]
     },
     {
       "parameters": {
@@ -647,18 +771,24 @@
       "name": "⏰ 33. Follow-up Scheduler",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-1000, 400]
+      "position": [
+        -1000,
+        400
+      ]
     },
     {
       "parameters": {
-        "jsCode": "// ==========================================\n// NODE: Analytics Logger\n// PURPOSE: Track all conversations for insights\n// FEATURES: Message counts, intent trends, lead conversion tracking\n// VERSION: 2.8.3 Compatible\n// ==========================================\n\nconst item = $input.first().json;\n\n// Initialize analytics storage\nconst analyticsStore = $getWorkflowStaticData('global');\nif (!analyticsStore.analytics) {\n  analyticsStore.analytics = {\n    messages: [],\n    intents: {},\n    leads: {\n      total: 0,\n      qualified: 0,\n      converted: 0\n    },\n    dailyStats: {},\n    lastUpdated: new Date().toISOString()\n  };\n}\n\n// Create analytics entry\nconst analyticsEntry = {\n  timestamp: new Date().toISOString(),\n  waId: item.waId,\n  name: item.contactName,\n  message: item.textBody?.substring(0, 100) || '[Media]',\n  messageType: item.messageType,\n  intent: item.intent,\n  confidence: item.confidence,\n  isQualifiedLead: item.isQualifiedLead || false,\n  leadScore: item.leadScore,\n  messageCount: item.messageCount,\n  language: item.classification?.language || 'en',\n  topics: item.mentionedTopics || [],\n  responseTime: item.responseTime || 0\n};\n\n// Add to messages array (keep last 1000 for performance)\nanalyticsStore.analytics.messages.push(analyticsEntry);\nif (analyticsStore.analytics.messages.length > 1000) {\n  analyticsStore.analytics.messages = analyticsStore.analytics.messages.slice(-1000);\n}\n\n// Update intent counts\nconst intent = item.intent || 'unknown';\nanalyticsStore.analytics.intents[intent] = (analyticsStore.analytics.intents[intent] || 0) + 1;\n\n// Update lead counts\nif (item.isQualifiedLead) {\n  analyticsStore.analytics.leads.qualified++;\n}\nanalyticsStore.analytics.leads.total++;\n\n// Update daily stats\nconst today = new Date().toISOString().split('T')[0];\nif (!analyticsStore.analytics.dailyStats[today]) {\n  analyticsStore.analytics.dailyStats[today] = {\n    messages: 0,\n    uniqueUsers: 0,\n    intents: {},\n    leads: 0,\n    users: new Set()\n  };\n}\n\nanalyticsStore.analytics.dailyStats[today].messages++;\nanalyticsStore.analytics.dailyStats[today].users.add(item.waId);\nanalyticsStore.analytics.dailyStats[today].uniqueUsers = analyticsStore.analytics.dailyStats[today].users.size;\n\nconst dailyIntent = analyticsStore.analytics.dailyStats[today].intents;\ndailyIntent[intent] = (dailyIntent[intent] || 0) + 1;\n\nif (item.isQualifiedLead) {\n  analyticsStore.analytics.dailyStats[today].leads++;\n}\n\n// Convert Set back to array for storage\nanalyticsStore.analytics.dailyStats[today].users = Array.from(analyticsStore.analytics.dailyStats[today].users);\n\nanalyticsStore.analytics.lastUpdated = new Date().toISOString();\n\n// Log summary every 100 messages\nif (analyticsStore.analytics.messages.length % 100 === 0) {\n  console.log('Analytics Summary:', {\n    totalMessages: analyticsStore.analytics.messages.length,\n    uniqueUsers: Object.keys(analyticsStore.analytics.dailyStats).reduce((acc, day) => {\n      return Math.max(acc, analyticsStore.analytics.dailyStats[day].uniqueUsers);\n    }, 0),\n    topIntents: Object.entries(analyticsStore.analytics.intents)\n      .sort((a, b) => b[1] - a[1])\n      .slice(0, 5),\n    qualifiedLeads: analyticsStore.analytics.leads.qualified\n  });\n}\n\nreturn [{\n  json: item\n}];",
+        "jsCode": "// ==========================================\n// NODE: Analytics Logger\n// PURPOSE: Track all conversations for insights\n// FEATURES: Message counts, intent trends, lead conversion tracking\n// VERSION: 2.8.3 Compatible\n// ==========================================\n\nconst item = $input.first().json;\n\n// Initialize analytics storage\nconst analyticsStore = $getWorkflowStaticData('global');\nif (!analyticsStore.analytics) {\n  analyticsStore.analytics = {\n    messages: [],\n    intents: {},\n    leads: {\n      total: 0,\n      qualified: 0,\n      converted: 0\n    },\n    dailyStats: {},\n    lastUpdated: new Date().toISOString()\n  };\n}\n\n// Create analytics entry\nconst analyticsEntry = {\n  timestamp: new Date().toISOString(),\n  waId: item.waId,\n  name: item.contactName,\n  message: item.textBody?.substring(0, 100) || '[Media]',\n  messageType: item.messageType,\n  intent: item.intent,\n  confidence: item.confidence,\n  isQualifiedLead: item.isQualifiedLead || false,\n  leadScore: item.leadScore,\n  messageCount: item.messageCount,\n  language: item.classification?.language || 'en',\n  topics: item.mentionedTopics || [],\n  responseTime: item.responseTime || 0\n};\n\n// Add to messages array (keep last 1000 for performance)\nanalyticsStore.analytics.messages.push(analyticsEntry);\nif (analyticsStore.analytics.messages.length > 1000) {\n  analyticsStore.analytics.messages = analyticsStore.analytics.messages.slice(-1000);\n}\n\n// Update intent counts\nconst intent = item.intent || 'unknown';\nanalyticsStore.analytics.intents[intent] = (analyticsStore.analytics.intents[intent] || 0) + 1;\n\n// Update lead counts\nif (item.isQualifiedLead) {\n  analyticsStore.analytics.leads.qualified++;\n}\nanalyticsStore.analytics.leads.total++;\n\n// Update daily stats\nconst today = new Date().toISOString().split('T')[0];\nif (!analyticsStore.analytics.dailyStats[today]) {\n  analyticsStore.analytics.dailyStats[today] = {\n    messages: 0,\n    uniqueUsers: 0,\n    intents: {},\n    leads: 0,\n    users: []\n  };\n}\n\nanalyticsStore.analytics.dailyStats[today].messages++;\nif (!analyticsStore.analytics.dailyStats[today].users.includes(item.waId)) {\n  analyticsStore.analytics.dailyStats[today].users.push(item.waId);\n}\nanalyticsStore.analytics.dailyStats[today].uniqueUsers = analyticsStore.analytics.dailyStats[today].users.length;\n\nconst dailyIntent = analyticsStore.analytics.dailyStats[today].intents;\ndailyIntent[intent] = (dailyIntent[intent] || 0) + 1;\n\nif (item.isQualifiedLead) {\n  analyticsStore.analytics.dailyStats[today].leads++;\n}\n\n// Users array already stored as plain array for JSON serialization\n\nanalyticsStore.analytics.lastUpdated = new Date().toISOString();\n\n// Log summary every 100 messages\nif (analyticsStore.analytics.messages.length % 100 === 0) {\n  console.log('Analytics Summary:', {\n    totalMessages: analyticsStore.analytics.messages.length,\n    uniqueUsers: Object.keys(analyticsStore.analytics.dailyStats).reduce((acc, day) => {\n      return Math.max(acc, analyticsStore.analytics.dailyStats[day].uniqueUsers);\n    }, 0),\n    topIntents: Object.entries(analyticsStore.analytics.intents)\n      .sort((a, b) => b[1] - a[1])\n      .slice(0, 5),\n    qualifiedLeads: analyticsStore.analytics.leads.qualified\n  });\n}\n\nreturn [{\n  json: item\n}];",
         "language": "javaScript"
       },
       "id": "analytics-logger",
       "name": "📊 34. Analytics Logger",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-800, 400]
+      "position": [
+        -800,
+        400
+      ]
     },
     {
       "parameters": {
@@ -669,7 +799,10 @@
       "name": "✅ 35. Execution Complete",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-600, 400]
+      "position": [
+        -600,
+        400
+      ]
     },
     {
       "parameters": {
@@ -685,7 +818,10 @@
       "name": "⏰ 36. Schedule Trigger (Every Hour)",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.1,
-      "position": [-2000, 800]
+      "position": [
+        -2000,
+        800
+      ]
     },
     {
       "parameters": {
@@ -696,18 +832,26 @@
       "name": "🔍 37. Follow-up Checker",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-1800, 800]
+      "position": [
+        -1800,
+        800
+      ]
     },
     {
       "parameters": {
         "to": "={{ $json.phone }}",
-        "textBody": "=👋 *Just checking in!*\n\nHi *{{ $json.name }}*, did you get all the information you needed about our WhatsApp CRM platform?\n\nIf you have any questions, just reply here - I'm happy to help! 😊\n\n━━━━━━━━━━━━━━━━━━━\nQuick links:\n💰 Type *pricing* for plans\n🎯 Type *demo* to start trial\n📞 Type *human* to talk to team\n━━━━━━━━━━━━━━━━━━━"
+        "textBody": "=👋 *Just checking in!*\n\nHi *{{ $json.name }}*, did you get all the information you needed about our WhatsApp CRM platform?\n\nIf you have any questions, just reply here - I'm happy to help! 😊\n\n━━━━━━━━━━━━━━━━━━━\nQuick links:\n💰 Type *pricing* for plans\n🎯 Type *demo* to start trial\n📞 Type *human* to talk to team\n━━━━━━━━━━━━━━━━━━━",
+        "resource": "message",
+        "operation": "sendText"
       },
       "id": "send-followup1",
       "name": "💬 38. Follow-up 1 (1 Hour)",
       "type": "n8n-nodes-wcrm.wcrm",
       "typeVersion": 1,
-      "position": [-1600, 700],
+      "position": [
+        -1600,
+        700
+      ],
       "credentials": {
         "wcrmApi": {
           "id": "SnyJoaaZ2MZV53oi",
@@ -718,13 +862,18 @@
     {
       "parameters": {
         "to": "={{ $json.phone }}",
-        "textBody": "=💡 *Still thinking about automating your WhatsApp?*\n\nHi *{{ $json.name }}*, remember you can start with a free demo:\n👉 https://crm.srlines.net/user\n\n✅ No credit card required\n✅ Just 4 simple steps\n✅ Full access for 24 hours\n\nNeed help getting started? Just reply with your question! 🚀"
+        "textBody": "=💡 *Still thinking about automating your WhatsApp?*\n\nHi *{{ $json.name }}*, remember you can start with a free demo:\n👉 https://crm.srlines.net/user\n\n✅ No credit card required\n✅ Just 4 simple steps\n✅ Full access for 24 hours\n\nNeed help getting started? Just reply with your question! 🚀",
+        "resource": "message",
+        "operation": "sendText"
       },
       "id": "send-followup2",
       "name": "💬 39. Follow-up 2 (24 Hours)",
       "type": "n8n-nodes-wcrm.wcrm",
       "typeVersion": 1,
-      "position": [-1600, 780],
+      "position": [
+        -1600,
+        780
+      ],
       "credentials": {
         "wcrmApi": {
           "id": "SnyJoaaZ2MZV53oi",
@@ -735,13 +884,18 @@
     {
       "parameters": {
         "to": "={{ $json.phone }}",
-        "textBody": "=🎯 *Special Offer Reminder*\n\nHi *{{ $json.name }}*, our plans start at just Rs. 999!\n\n━━━━━━━━━━━━━━━━━━━\n💰 *10 Days:* Rs. 999\n💰 *1 Month:* Rs. 2,499 🏆\n💰 *3 Months:* Rs. 7,497\n💰 *1 Year:* Rs. 24,999\n━━━━━━━━━━━━━━━━━━━\n\nJoin businesses saving 70% time with automated WhatsApp.\n\nStart here: https://crm.srlines.net/user\n\nQuestions? Just reply! 💬"
+        "textBody": "=🎯 *Special Offer Reminder*\n\nHi *{{ $json.name }}*, our plans start at just Rs. 999!\n\n━━━━━━━━━━━━━━━━━━━\n💰 *10 Days:* Rs. 999\n💰 *1 Month:* Rs. 2,499 🏆\n💰 *3 Months:* Rs. 7,497\n💰 *1 Year:* Rs. 24,999\n━━━━━━━━━━━━━━━━━━━\n\nJoin businesses saving 70% time with automated WhatsApp.\n\nStart here: https://crm.srlines.net/user\n\nQuestions? Just reply! 💬",
+        "resource": "message",
+        "operation": "sendText"
       },
       "id": "send-followup3",
       "name": "💬 40. Follow-up 3 (3 Days)",
       "type": "n8n-nodes-wcrm.wcrm",
       "typeVersion": 1,
-      "position": [-1600, 860],
+      "position": [
+        -1600,
+        860
+      ],
       "credentials": {
         "wcrmApi": {
           "id": "SnyJoaaZ2MZV53oi",
@@ -752,13 +906,18 @@
     {
       "parameters": {
         "to": "={{ $json.phone }}",
-        "textBody": "=🤝 *Let's connect directly!*\n\nHi *{{ $json.name }}*, sometimes it's easier to chat with a human.\n\n━━━━━━━━━━━━━━━━━━━\n📱 *Talk to us live on WhatsApp:*\n+92 333 9776136\n\n🌐 *Visit our website:*\nhttps://crm.srlines.net\n━━━━━━━━━━━━━━━━━━━\n\nWe're here to help grow your business! 🚀\n\nHave a specific question? Just reply and I'll help! 😊"
+        "textBody": "=🤝 *Let's connect directly!*\n\nHi *{{ $json.name }}*, sometimes it's easier to chat with a human.\n\n━━━━━━━━━━━━━━━━━━━\n📱 *Talk to us live on WhatsApp:*\n+92 333 9776136\n\n🌐 *Visit our website:*\nhttps://crm.srlines.net\n━━━━━━━━━━━━━━━━━━━\n\nWe're here to help grow your business! 🚀\n\nHave a specific question? Just reply and I'll help! 😊",
+        "resource": "message",
+        "operation": "sendText"
       },
       "id": "send-followup4",
       "name": "💬 41. Follow-up 4 (1 Week)",
       "type": "n8n-nodes-wcrm.wcrm",
       "typeVersion": 1,
-      "position": [-1600, 940],
+      "position": [
+        -1600,
+        940
+      ],
       "credentials": {
         "wcrmApi": {
           "id": "SnyJoaaZ2MZV53oi",
@@ -775,7 +934,61 @@
       "name": "✅ 42. Follow-up Complete",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-1400, 800]
+      "position": [
+        -1400,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "n8n-check",
+              "leftValue": "={{ $json.intent }}",
+              "rightValue": "n8n",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "router-n8n",
+      "name": "🔀 17b. n8n?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        1800
+      ]
+    },
+    {
+      "parameters": {
+        "to": "={{ $json.from }}",
+        "textBody": "=🤖 *n8n & wCRM - Powerful Automation!*\n\nGreat question, *{{ $json.contactName }}*! Here's what you should know:\n\n🔗 *What is n8n?*\nn8n is a powerful workflow automation platform that lets you connect apps, automate tasks, and build complex workflows — all with a visual, no-code/low-code interface.\n\n🌟 *wCRM as n8n Community Node*\nwCRM is proudly available as an *official n8n community node package* (`n8n-nodes-wcrm`). This means you can:\n\n✅ Send WhatsApp messages directly from n8n\n✅ Build chatbots with visual workflows\n✅ Connect WhatsApp to 400+ apps\n✅ Automate customer support & sales\n✅ Use triggers for incoming messages\n\n📦 *Install in n8n:*\nGo to Settings → Community Nodes → Install → search `n8n-nodes-wcrm`\n\n🔗 *Links:*\n• npm: npmjs.com/package/n8n-nodes-wcrm\n• GitHub: github.com/srlinespk/n8n-community-node-for-wCRM\n\nWould you like to know about *pricing*, *demo*, or anything else? 😊",
+        "resource": "message",
+        "operation": "sendText"
+      },
+      "id": "send-n8n",
+      "name": "💬 31b. Send n8n Info",
+      "type": "n8n-nodes-wcrm.wcrm",
+      "typeVersion": 1,
+      "position": [
+        -1400,
+        1800
+      ],
+      "credentials": {
+        "wcrmApi": {
+          "id": "SnyJoaaZ2MZV53oi",
+          "name": "wCRM account"
+        }
+      }
     }
   ],
   "connections": {
@@ -824,238 +1037,238 @@
       ]
     },
     "🔀 5. Urgent?": {
-      "branches": {
-        "true": [
+      "main": [
+        [
           {
             "node": "💬 18. Send Urgent Response",
             "type": "main",
             "index": 0
           }
         ],
-        "false": [
+        [
           {
             "node": "🔀 6. Greeting?",
             "type": "main",
             "index": 0
           }
         ]
-      }
+      ]
     },
     "🔀 6. Greeting?": {
-      "branches": {
-        "true": [
+      "main": [
+        [
           {
             "node": "💬 19. Send Welcome",
             "type": "main",
             "index": 0
           }
         ],
-        "false": [
+        [
           {
             "node": "🔀 7. Pricing?",
             "type": "main",
             "index": 0
           }
         ]
-      }
+      ]
     },
     "🔀 7. Pricing?": {
-      "branches": {
-        "true": [
+      "main": [
+        [
           {
             "node": "💬 20. Send Pricing",
             "type": "main",
             "index": 0
           }
         ],
-        "false": [
+        [
           {
             "node": "🔀 8. Demo?",
             "type": "main",
             "index": 0
           }
         ]
-      }
+      ]
     },
     "🔀 8. Demo?": {
-      "branches": {
-        "true": [
+      "main": [
+        [
           {
             "node": "💬 21. Send Demo Steps",
             "type": "main",
             "index": 0
           }
         ],
-        "false": [
+        [
           {
             "node": "🔀 9. Requirements?",
             "type": "main",
             "index": 0
           }
         ]
-      }
+      ]
     },
     "🔀 9. Requirements?": {
-      "branches": {
-        "true": [
+      "main": [
+        [
           {
             "node": "💬 22. Send Requirements",
             "type": "main",
             "index": 0
           }
         ],
-        "false": [
+        [
           {
             "node": "🔀 10. Human?",
             "type": "main",
             "index": 0
           }
         ]
-      }
+      ]
     },
     "🔀 10. Human?": {
-      "branches": {
-        "true": [
+      "main": [
+        [
           {
             "node": "💬 23. Send Human Contact",
             "type": "main",
             "index": 0
           }
         ],
-        "false": [
+        [
           {
             "node": "🔀 11. Mobile App?",
             "type": "main",
             "index": 0
           }
         ]
-      }
+      ]
     },
     "🔀 11. Mobile App?": {
-      "branches": {
-        "true": [
+      "main": [
+        [
           {
             "node": "💬 24. Send Mobile App Tutorial",
             "type": "main",
             "index": 0
           }
         ],
-        "false": [
+        [
           {
             "node": "🔀 12. CTWA?",
             "type": "main",
             "index": 0
           }
         ]
-      }
+      ]
     },
     "🔀 12. CTWA?": {
-      "branches": {
-        "true": [
+      "main": [
+        [
           {
             "node": "💬 25. Send CTWA Info",
             "type": "main",
             "index": 0
           }
         ],
-        "false": [
+        [
           {
             "node": "🔀 13. Subscribe?",
             "type": "main",
             "index": 0
           }
         ]
-      }
+      ]
     },
     "🔀 13. Subscribe?": {
-      "branches": {
-        "true": [
+      "main": [
+        [
           {
             "node": "💬 26. Send Subscribe Guide",
             "type": "main",
             "index": 0
           }
         ],
-        "false": [
+        [
           {
             "node": "🔀 14. Support?",
             "type": "main",
             "index": 0
           }
         ]
-      }
+      ]
     },
     "🔀 14. Support?": {
-      "branches": {
-        "true": [
+      "main": [
+        [
           {
             "node": "💬 27. Send Support Info",
             "type": "main",
             "index": 0
           }
         ],
-        "false": [
+        [
           {
             "node": "🔀 15. Feature?",
             "type": "main",
             "index": 0
           }
         ]
-      }
+      ]
     },
     "🔀 15. Feature?": {
-      "branches": {
-        "true": [
+      "main": [
+        [
           {
             "node": "💬 28. Send Features List",
             "type": "main",
             "index": 0
           }
         ],
-        "false": [
+        [
           {
             "node": "🔀 16. Integration?",
             "type": "main",
             "index": 0
           }
         ]
-      }
+      ]
     },
     "🔀 16. Integration?": {
-      "branches": {
-        "true": [
+      "main": [
+        [
           {
             "node": "💬 29. Send Integration Info",
             "type": "main",
             "index": 0
           }
         ],
-        "false": [
+        [
           {
             "node": "🔀 17. Thanks?",
             "type": "main",
             "index": 0
           }
         ]
-      }
+      ]
     },
     "🔀 17. Thanks?": {
-      "branches": {
-        "true": [
+      "main": [
+        [
           {
             "node": "💬 30. Send Thanks Response",
             "type": "main",
             "index": 0
           }
         ],
-        "false": [
+        [
           {
-            "node": "💬 31. Send Help Menu",
+            "node": "🔀 17b. n8n?",
             "type": "main",
             "index": 0
           }
         ]
-      }
+      ]
     },
     "💬 18. Send Urgent Response": {
       "main": [
@@ -1324,6 +1537,35 @@
           }
         ]
       ]
+    },
+    "🔀 17b. n8n?": {
+      "main": [
+        [
+          {
+            "node": "💬 31b. Send n8n Info",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "💬 31. Send Help Menu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💬 31b. Send n8n Info": {
+      "main": [
+        [
+          {
+            "node": "📝 32. wCRM Integration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -1337,7 +1579,36 @@
     "binaryDataMode": "filesystem"
   },
   "active": true,
-  "tags": ["whatsapp", "crm", "chatbot", "production", "followups", "wCRM", "ultimate"],
+  "tags": [
+    {
+      "id": "29f8f39a-1630-42d2-a4b1-6cb88886b267",
+      "name": "whatsapp"
+    },
+    {
+      "id": "b0edc9f0-ada4-49c8-b13e-49d7ea8aaf8a",
+      "name": "crm"
+    },
+    {
+      "id": "17de8239-65ad-4191-9c03-efa9853a00fa",
+      "name": "chatbot"
+    },
+    {
+      "id": "c1b3a2b9-7528-4d93-8048-d6a7b380852c",
+      "name": "production"
+    },
+    {
+      "id": "ce6568ad-e49b-43f4-88c6-e1c86b62dd9d",
+      "name": "followups"
+    },
+    {
+      "id": "29cfc30a-31a8-4425-a4c6-2a4fbd8726c1",
+      "name": "wCRM"
+    },
+    {
+      "id": "d67403c7-39a3-499f-bc13-1cde1334e549",
+      "name": "ultimate"
+    }
+  ],
   "versionId": "1.0.0",
   "createdAt": "2026-02-23T10:00:00.000Z",
   "updatedAt": "2026-02-23T10:00:00.000Z"
