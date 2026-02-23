@@ -1,0 +1,1344 @@
+{
+  "name": "🚀 ULTIMATE wCRM WhatsApp Chatbot v2.8.3",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-main",
+      "name": "📩 1. Incoming Message Trigger",
+      "type": "n8n-nodes-wcrm.wcrmTrigger",
+      "typeVersion": 1,
+      "position": [-2400, 400],
+      "webhookId": "wcrm-ultimate-chatbot-prod",
+      "retryOnFail": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "wcrmApi": {
+          "id": "SnyJoaaZ2MZV53oi",
+          "name": "wCRM account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ==========================================\n// NODE: Comprehensive Payload Parser\n// PURPOSE: Parse all possible incoming data from wCRM/Meta\n// VERSION: 2.8.3 Compatible\n// ==========================================\n\n// Get the incoming data from the trigger\nconst incomingData = $input.first().json;\n\n// Comprehensive extraction with fallbacks for all possible fields\nconst parsedData = {\n  // Core identifiers\n  waId: incomingData.contactWaId || incomingData.from || incomingData.waId || '',\n  from: incomingData.from || incomingData.contactWaId || '',\n  phoneNumberId: incomingData.phoneNumberId || '',\n  \n  // Message content\n  textBody: incomingData.textBody || '',\n  messageId: incomingData.messageId || '',\n  messageType: incomingData.messageType || 'text',\n  timestamp: incomingData.timestamp || Math.floor(Date.now() / 1000).toString(),\n  \n  // Contact information\n  contactName: incomingData.contactName || 'Customer',\n  displayPhoneNumber: incomingData.displayPhoneNumber || '',\n  \n  // Raw data for advanced processing\n  rawBody: incomingData.body || null,\n  rawHeaders: incomingData.headers || null,\n  rawWebhookId: incomingData.webhookId || null,\n  rawWebhookUrl: incomingData.webhookUrl || null\n};\n\n// Extract from nested Meta payload if available\nif (incomingData.body?.entry?.[0]?.changes?.[0]?.value) {\n  const metaValue = incomingData.body.entry[0].changes[0].value;\n  \n  // Extract contact details from Meta format\n  if (metaValue.contacts?.[0]) {\n    const contact = metaValue.contacts[0];\n    parsedData.contactName = contact.profile?.name || parsedData.contactName;\n    parsedData.waId = contact.wa_id || parsedData.waId;\n  }\n  \n  // Extract message details from Meta format\n  if (metaValue.messages?.[0]) {\n    const message = metaValue.messages[0];\n    parsedData.from = message.from || parsedData.from;\n    parsedData.messageId = message.id || parsedData.messageId;\n    parsedData.timestamp = message.timestamp || parsedData.timestamp;\n    parsedData.messageType = message.type || parsedData.messageType;\n    \n    // Extract text body if available\n    if (message.text?.body) {\n      parsedData.textBody = message.text.body;\n    }\n    \n    // Handle different message types (future expansion)\n    if (message.type === 'image' && message.image) {\n      parsedData.mediaId = message.image.id;\n      parsedData.mediaUrl = message.image.link;\n      parsedData.mediaCaption = message.image.caption;\n    } else if (message.type === 'document' && message.document) {\n      parsedData.mediaId = message.document.id;\n      parsedData.mediaUrl = message.document.link;\n      parsedData.mediaFilename = message.document.filename;\n    }\n  }\n  \n  // Extract metadata\n  if (metaValue.metadata) {\n    parsedData.displayPhoneNumber = metaValue.metadata.display_phone_number || parsedData.displayPhoneNumber;\n    parsedData.phoneNumberId = metaValue.metadata.phone_number_id || parsedData.phoneNumberId;\n  }\n}\n\n// Validate required fields\nif (!parsedData.waId) {\n  console.error('Missing waId in incoming payload');\n  // Still return but with error flag\n  parsedData.parsingError = 'Missing waId';\n}\n\nif (!parsedData.from) {\n  parsedData.from = parsedData.waId; // Fallback\n}\n\n// Log successful parse\nconsole.log(`Parsed message from ${parsedData.contactName} (${parsedData.waId}): ${parsedData.textBody.substring(0, 50)}`);\n\n// Return structured data\nreturn [{\n  json: parsedData\n}];",
+        "language": "javaScript"
+      },
+      "id": "parser-comprehensive",
+      "name": "🔧 2. Comprehensive Parser",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-2200, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ==========================================\n// NODE: Advanced Conversation Memory\n// PURPOSE: Store and retrieve conversation context\n// FEATURES: Session tracking, history, lead scoring, sentiment analysis\n// VERSION: 2.8.3 Compatible\n// ==========================================\n\n// Get parsed data\nconst item = $input.first().json;\nconst waId = item.waId;\nconst currentTime = new Date().toISOString();\n\n// Initialize static storage\nconst conversationStore = $getWorkflowStaticData('global');\nif (!conversationStore.conversations) {\n  conversationStore.conversations = {};\n}\nif (!conversationStore.leads) {\n  conversationStore.leads = {};\n}\nif (!conversationStore.metrics) {\n  conversationStore.metrics = {\n    totalMessages: 0,\n    uniqueUsers: 0,\n    lastReset: currentTime\n  };\n}\n\n// Get or create user session\nconst userKey = `user_${waId}`;\nlet userSession = conversationStore.conversations[userKey] || {\n  // Basic info\n  waId: waId,\n  phoneNumber: item.from,\n  name: item.contactName,\n  firstSeen: currentTime,\n  lastSeen: currentTime,\n  \n  // Conversation tracking\n  history: [],\n  messageCount: 0,\n  conversationStage: 'new', // new, active, engaged, converted, lost\n  \n  // Lead qualification\n  isLead: false,\n  leadScore: 0,\n  leadQualified: false,\n  leadStage: 'visitor', // visitor, lead, mql, sql, customer\n  leadSource: 'whatsapp_inbound',\n  leadNotes: [],\n  \n  // Interest tracking\n  interestedIn: [],\n  mentionedTopics: [],\n  \n  // Follow-up tracking\n  followupsSent: [],\n  lastFollowupAt: null,\n  followupCount: 0,\n  \n  // Sentiment tracking\n  sentimentScores: [],\n  averageSentiment: 0,\n  \n  // Response tracking\n  responseTimes: [],\n  averageResponseTime: 0,\n  \n  // Custom fields\n  customData: {},\n  \n  // Metadata\n  lastUpdated: currentTime\n};\n\n// Update user info if changed\nuserSession.name = item.contactName || userSession.name;\nuserSession.phoneNumber = item.from || userSession.phoneNumber;\nuserSession.lastSeen = currentTime;\n\n// Simple sentiment analysis (basic keyword-based)\nconst positiveWords = ['good', 'great', 'awesome', 'thanks', 'thank', 'perfect', 'excellent', 'best', 'love', 'happy', 'interested', 'want', 'buy'];\nconst negativeWords = ['bad', 'poor', 'terrible', 'awful', 'worst', 'hate', 'angry', 'upset', 'frustrated', 'problem', 'issue', 'not working', 'broken'];\nconst messageLower = (item.textBody || '').toLowerCase();\n\nlet sentiment = 0; // -1 to 1 scale\npositiveWords.forEach(word => {\n  if (messageLower.includes(word)) sentiment += 0.2;\n});\nnegativeWords.forEach(word => {\n  if (messageLower.includes(word)) sentiment -= 0.2;\n});\nsentiment = Math.max(-1, Math.min(1, sentiment));\n\nuserSession.sentimentScores.push({\n  score: sentiment,\n  message: item.textBody?.substring(0, 50),\n  timestamp: currentTime\n});\nif (userSession.sentimentScores.length > 10) {\n  userSession.sentimentScores = userSession.sentimentScores.slice(-10);\n}\nuserSession.averageSentiment = userSession.sentimentScores.reduce((sum, s) => sum + s.score, 0) / userSession.sentimentScores.length;\n\n// Add message to history\nconst messageEntry = {\n  role: 'user',\n  content: item.textBody || '[Media Message]',\n  type: item.messageType,\n  messageId: item.messageId,\n  timestamp: currentTime,\n  sentiment: sentiment\n};\n\nuserSession.history.push(messageEntry);\nuserSession.messageCount = userSession.history.length;\n\n// Keep last 50 messages maximum\nif (userSession.history.length > 50) {\n  userSession.history = userSession.history.slice(-50);\n}\n\n// Update conversation stage based on message count\nif (userSession.messageCount === 1) {\n  userSession.conversationStage = 'new';\n} else if (userSession.messageCount <= 5) {\n  userSession.conversationStage = 'active';\n} else if (userSession.messageCount <= 15) {\n  userSession.conversationStage = 'engaged';\n} else {\n  userSession.conversationStage = 'deep_engagement';\n}\n\n// Auto lead scoring based on engagement and keywords\nlet leadScore = 0;\n\n// Base score from message count\nleadScore += Math.min(20, userSession.messageCount * 2);\n\n// Score from positive sentiment\nleadScore += (userSession.averageSentiment + 1) * 10;\n\n// Score from buying keywords\nconst buyerKeywords = ['price', 'cost', 'buy', 'purchase', 'subscribe', 'plan', 'package', 'interested', 'demo', 'trial', 'how much', 'sign up'];\nbuyerKeywords.forEach(keyword => {\n  if (messageLower.includes(keyword)) leadScore += 5;\n});\n\n// Score from business indicators\nconst businessKeywords = ['business', 'company', 'store', 'shop', 'agency', 'team', 'employees', 'clients', 'customers'];\nbusinessKeywords.forEach(keyword => {\n  if (messageLower.includes(keyword)) leadScore += 3;\n});\n\n// Cap at 100\nuserSession.leadScore = Math.min(100, leadScore);\n\n// Determine if qualified lead\nuserSession.leadQualified = userSession.leadScore >= 50;\n\n// Update lead stage\nif (!userSession.isLead && userSession.leadScore >= 30) {\n  userSession.isLead = true;\n  userSession.leadStage = 'lead';\n} else if (userSession.leadScore >= 60) {\n  userSession.leadStage = 'mql';\n} else if (userSession.leadScore >= 80) {\n  userSession.leadStage = 'sql';\n}\n\n// Track mentioned topics (simple keyword extraction)\nconst topicKeywords = {\n  'pricing': ['price', 'cost', 'rs', 'rupees', '999', '2499', '7497', '24999', 'plan', 'package', 'subscription'],\n  'demo': ['demo', 'trial', 'free', 'sign up', 'start', 'credit card', 'verify'],\n  'requirements': ['require', 'need', 'facebook', 'website', 'blog', 'whatsapp business', 'account', 'onboard'],\n  'human': ['human', 'agent', 'person', 'speak', 'talk', 'call', '+92 333 9776136'],\n  'mobile_app': ['app', 'android', 'mobile', 'tiktok', 'video'],\n  'ctwa': ['ctwa', 'attribution', 'portal', 'ad', 'lead tracking'],\n  'support': ['support', 'help', 'issue', 'problem', 'not working', 'broken'],\n  'integration': ['shopify', 'woocommerce', 'integrate', 'plugin', 'connect', 'api']\n};\n\nfor (const [topic, keywords] of Object.entries(topicKeywords)) {\n  for (const keyword of keywords) {\n    if (messageLower.includes(keyword) && !userSession.mentionedTopics.includes(topic)) {\n      userSession.mentionedTopics.push(topic);\n      if (!userSession.interestedIn.includes(topic)) {\n        userSession.interestedIn.push(topic);\n      }\n      break;\n    }\n  }\n}\n\n// Save updated session\nconversationStore.conversations[userKey] = userSession;\nconversationStore.metrics.totalMessages++;\n\n// Update unique users count if new\nif (userSession.messageCount === 1) {\n  conversationStore.metrics.uniqueUsers = Object.keys(conversationStore.conversations).length;\n}\n\n// If this is a qualified lead, also store in leads collection for quick access\nif (userSession.leadQualified) {\n  conversationStore.leads[userKey] = {\n    waId: userSession.waId,\n    name: userSession.name,\n    phone: userSession.phoneNumber,\n    score: userSession.leadScore,\n    stage: userSession.leadStage,\n    interestedIn: userSession.interestedIn,\n    lastActive: currentTime,\n    messageCount: userSession.messageCount\n  };\n}\n\n// Return enriched data\nreturn [{\n  json: {\n    ...item,\n    session: userSession,\n    isNewConversation: userSession.messageCount === 1,\n    messageCount: userSession.messageCount,\n    conversationStage: userSession.conversationStage,\n    isQualifiedLead: userSession.leadQualified,\n    leadScore: userSession.leadScore,\n    leadStage: userSession.leadStage,\n    averageSentiment: userSession.averageSentiment,\n    mentionedTopics: userSession.mentionedTopics,\n    interestedIn: userSession.interestedIn\n  }\n}];",
+        "language": "javaScript"
+      },
+      "id": "memory-advanced",
+      "name": "🧠 3. Advanced Memory",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-2000, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ==========================================\n// NODE: Intelligent Intent Classifier\n// PURPOSE: Classify user intent with confidence scoring\n// FEATURES: Multi-intent detection, language detection, urgency detection\n// VERSION: 2.8.3 Compatible\n// ==========================================\n\nconst item = $input.first().json;\nconst message = (item.textBody || '').toLowerCase().trim();\nconst isNew = item.isNewConversation || false;\nconst session = item.session || {};\n\n// Initialize classification object\nconst classification = {\n  primaryIntent: 'unknown',\n  secondaryIntents: [],\n  confidence: 0,\n  language: 'en',\n  isUrgent: false,\n  isQuestion: false,\n  containsContactInfo: false,\n  detectedEntities: {},\n  suggestedAction: 'respond',\n  priority: 'normal' // low, normal, high, urgent\n};\n\n// Detect language (simplified)\nconst urduIndicators = ['hai', 'ky', 'sy', 'hy', 'aur', 'ap', 'main', 'kya', 'yeh', 'nhi', 'sakte', 'ga', 'gi', 'lye'];\nconst romanUrduCount = urduIndicators.filter(word => message.includes(word)).length;\nif (romanUrduCount >= 2) {\n  classification.language = 'urdu';\n}\n\n// Check if it's a question\nconst questionIndicators = ['?', 'what', 'how', 'why', 'when', 'where', 'which', 'can you', 'could you', 'is it', 'are you'];\nclassification.isQuestion = questionIndicators.some(indicator => message.includes(indicator));\n\n// Check for urgency\nconst urgentIndicators = ['urgent', 'asap', 'immediately', 'emergency', 'quick', 'fast', 'hurry', 'as soon as possible', 'critical'];\nclassification.isUrgent = urgentIndicators.some(word => message.includes(word));\nclassification.priority = classification.isUrgent ? 'urgent' : 'normal';\n\n// Define intents with keywords and weights\nconst intents = [\n  {\n    name: 'greeting',\n    keywords: ['hi', 'hello', 'hey', 'salam', 'assalam', 'good morning', 'good evening', 'good afternoon', 'howdy', 'greetings'],\n    weight: 1.0,\n    action: 'welcome'\n  },\n  {\n    name: 'pricing',\n    keywords: ['price', 'cost', 'plan', 'package', 'rs', 'rupees', '999', '2499', '7497', '24999', 'how much', 'fee', 'charges', 'pricing', 'rates', 'subscription', 'pay', 'payment'],\n    weight: 0.9,\n    action: 'provide_pricing'\n  },\n  {\n    name: 'demo',\n    keywords: ['demo', 'trial', 'free', 'test', 'try', 'sample', 'evaluate', 'test drive', 'sign up', 'register', 'create account', 'get started', 'start now', 'credit card', 'verify'],\n    weight: 0.9,\n    action: 'provide_demo_steps'\n  },\n  {\n    name: 'requirements',\n    keywords: ['require', 'need', 'prerequisite', 'facebook', 'website', 'blog', 'whatsapp business', 'account', 'onboard', 'setup', 'installation', 'prepare', 'need to have', 'must have', 'condition'],\n    weight: 0.85,\n    action: 'provide_requirements'\n  },\n  {\n    name: 'human',\n    keywords: ['human', 'agent', 'person', 'representative', 'speak', 'talk', 'call', 'contact', 'phone', 'number', 'live', 'support', 'customer service', 'real person', 'talk to someone', '+92 333 9776136'],\n    weight: 1.0,\n    action: 'escalate_to_human'\n  },\n  {\n    name: 'mobile_app',\n    keywords: ['app', 'application', 'android', 'mobile', 'phone app', 'tiktok', 'video tutorial', 'guide', 'how to use app', 'download app'],\n    weight: 0.8,\n    action: 'provide_app_info'\n  },\n  {\n    name: 'ctwa',\n    keywords: ['ctwa', 'attribution', 'portal', 'track', 'ad', 'ads', 'click to whatsapp', 'lead attribution', 'campaign tracking', 'facebook ads', 'instagram ads', 'roi'],\n    weight: 0.85,\n    action: 'provide_ctwa_info'\n  },\n  {\n    name: 'subscribe',\n    keywords: ['subscribe', 'subscription', 'after demo', 'how to subscribe', 'become member', 'join', 'upgrade', 'purchase', 'buy now', 'activate', 'youtube', 'watch'],\n    weight: 0.8,\n    action: 'provide_subscribe_guide'\n  },\n  {\n    name: 'support',\n    keywords: ['support', 'help', 'issue', 'problem', 'not working', 'broken', 'error', 'bug', 'trouble', 'difficulty', 'stuck', 'can\'t', 'cannot', 'unable', 'doesn\'t work'],\n    weight: 0.9,\n    action: 'provide_support'\n  },\n  {\n    name: 'feature',\n    keywords: ['feature', 'capability', 'function', 'what can', 'does it', 'tell me about', 'overview', 'benefits', 'advantages', 'what is', 'explain'],\n    weight: 0.7,\n    action: 'provide_features'\n  },\n  {\n    name: 'integration',\n    keywords: ['integrate', 'integration', 'connect', 'shopify', 'woocommerce', 'plugin', 'api', 'webhook', 'sync', 'third party', 'external'],\n    weight: 0.8,\n    action: 'provide_integration_info'\n  },\n  {\n    name: 'thanks',\n    keywords: ['thanks', 'thank you', 'appreciate', 'grateful', 'good bye', 'bye', 'see you', 'talk later', 'that\'s all'],\n    weight: 0.7,\n    action: 'acknowledge'\n  }\n];\n\n// Score each intent\nconst scores = {};\nintents.forEach(intent => {\n  let score = 0;\n  intent.keywords.forEach(keyword => {\n    if (message.includes(keyword)) {\n      score += intent.weight;\n    }\n  });\n  scores[intent.name] = score;\n});\n\n// Find primary intent (highest score)\nlet highestScore = 0;\nlet primaryIntent = 'unknown';\nlet primaryAction = 'provide_help_menu';\n\nfor (const [intentName, score] of Object.entries(scores)) {\n  if (score > highestScore) {\n    highestScore = score;\n    primaryIntent = intentName;\n    const intentObj = intents.find(i => i.name === intentName);\n    primaryAction = intentObj ? intentObj.action : 'provide_help_menu';\n  }\n}\n\n// Find secondary intents (scores > 0 but not primary)\nconst secondaryIntents = [];\nfor (const [intentName, score] of Object.entries(scores)) {\n  if (score > 0 && intentName !== primaryIntent) {\n    secondaryIntents.push(intentName);\n  }\n}\n\n// Special handling for new conversations\nif (isNew && highestScore === 0) {\n  primaryIntent = 'greeting';\n  primaryAction = 'welcome';\n  highestScore = 0.9;\n}\n\n// Calculate confidence (normalize score)\nconst maxPossibleScore = Math.max(...intents.map(i => i.weight * i.keywords.length));\nclassification.confidence = Math.min(0.95, highestScore / (maxPossibleScore || 1));\n\n// Set classification results\nclassification.primaryIntent = primaryIntent;\nclassification.secondaryIntents = secondaryIntents.slice(0, 3); // Keep top 3\nclassification.suggestedAction = primaryAction;\n\n// Extract entities (simple pattern matching)\nif (message.match(/\\b\\d{10,13}\\b/)) {\n  classification.detectedEntities.phoneNumber = message.match(/\\b\\d{10,13}\\b/)[0];\n  classification.containsContactInfo = true;\n}\n\nif (message.match(/[\\w.-]+@[\\w.-]+\\.\\w+/)) {\n  classification.detectedEntities.email = message.match(/[\\w.-]+@[\\w.-]+\\.\\w+/)[0];\n  classification.containsContactInfo = true;\n}\n\n// Check for price mentions\nconst priceMatch = message.match(/rs\\.?\\s*(\\d+)|(\\d+)\\s*rupees/i);\nif (priceMatch) {\n  classification.detectedEntities.mentionedPrice = priceMatch[1] || priceMatch[2];\n}\n\n// Return enriched data\nreturn [{\n  json: {\n    ...item,\n    classification: classification,\n    intent: classification.primaryIntent,\n    confidence: classification.confidence,\n    suggestedAction: classification.suggestedAction,\n    isUrgent: classification.isUrgent,\n    priority: classification.priority\n  }\n}];",
+        "language": "javaScript"
+      },
+      "id": "intent-advanced",
+      "name": "🎯 4. Advanced Intent Classifier",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1800, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "urgent-check",
+              "leftValue": "={{ $json.priority }}",
+              "rightValue": "urgent",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "router-urgent",
+      "name": "🔀 5. Urgent?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [-1600, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "greeting-check",
+              "leftValue": "={{ $json.intent }}",
+              "rightValue": "greeting",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "router-greeting",
+      "name": "🔀 6. Greeting?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [-1600, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "pricing-check",
+              "leftValue": "={{ $json.intent }}",
+              "rightValue": "pricing",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "router-pricing",
+      "name": "🔀 7. Pricing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [-1600, 380]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "demo-check",
+              "leftValue": "={{ $json.intent }}",
+              "rightValue": "demo",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "router-demo",
+      "name": "🔀 8. Demo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [-1600, 460]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "requirements-check",
+              "leftValue": "={{ $json.intent }}",
+              "rightValue": "requirements",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "router-requirements",
+      "name": "🔀 9. Requirements?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [-1600, 540]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "human-check",
+              "leftValue": "={{ $json.intent }}",
+              "rightValue": "human",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "router-human",
+      "name": "🔀 10. Human?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [-1600, 620]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "mobile-check",
+              "leftValue": "={{ $json.intent }}",
+              "rightValue": "mobile_app",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "router-mobile",
+      "name": "🔀 11. Mobile App?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [-1600, 700]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "ctwa-check",
+              "leftValue": "={{ $json.intent }}",
+              "rightValue": "ctwa",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "router-ctwa",
+      "name": "🔀 12. CTWA?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [-1600, 780]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "subscribe-check",
+              "leftValue": "={{ $json.intent }}",
+              "rightValue": "subscribe",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "router-subscribe",
+      "name": "🔀 13. Subscribe?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [-1600, 860]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "support-check",
+              "leftValue": "={{ $json.intent }}",
+              "rightValue": "support",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "router-support",
+      "name": "🔀 14. Support?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [-1600, 940]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "feature-check",
+              "leftValue": "={{ $json.intent }}",
+              "rightValue": "feature",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "router-feature",
+      "name": "🔀 15. Feature?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [-1600, 1020]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "integration-check",
+              "leftValue": "={{ $json.intent }}",
+              "rightValue": "integration",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "router-integration",
+      "name": "🔀 16. Integration?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [-1600, 1100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "thanks-check",
+              "leftValue": "={{ $json.intent }}",
+              "rightValue": "thanks",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "router-thanks",
+      "name": "🔀 17. Thanks?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [-1600, 1180]
+    },
+    {
+      "parameters": {
+        "to": "={{ $json.from }}",
+        "textBody": "=⚠️ *URGENT: Human Support Requested*\n\nI've detected this is urgent and immediately notified our team.\n\nSomeone will contact you within *15 minutes*.\n\nFor immediate assistance, you can also:\n📞 Call: +92 333 9776136\n📧 Email: support@srlines.net\n\nThank you for your patience. 🙏"
+      },
+      "id": "send-urgent",
+      "name": "💬 18. Send Urgent Response",
+      "type": "n8n-nodes-wcrm.wcrm",
+      "typeVersion": 1,
+      "position": [-1400, 200],
+      "credentials": {
+        "wcrmApi": {
+          "id": "SnyJoaaZ2MZV53oi",
+          "name": "wCRM account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "to": "={{ $json.from }}",
+        "textBody": "=👋 *Welcome to SR Lines!*\n\nAssalam-o-Alaikum *{{ $json.contactName }}*! 🙏\n\nThank you for reaching out to us. I'm your virtual assistant and I'm here to help with:\n\n━━━━━━━━━━━━━━━━━━━\n💰 *Pricing* - Plans & rates\n🎯 *Demo* - Start free trial\n📋 *Requirements* - What you need\n📞 *Human* - Talk to our team\n📱 *Mobile App* - Video tutorial\n📊 *CTWA* - Ad lead tracking\n⚙️ *Features* - What we offer\n🔌 *Integrations* - Shopify, WooCommerce\n━━━━━━━━━━━━━━━━━━━\n\nWhat would you like to know more about? Just type a keyword or question! 😊"
+      },
+      "id": "send-welcome",
+      "name": "💬 19. Send Welcome",
+      "type": "n8n-nodes-wcrm.wcrm",
+      "typeVersion": 1,
+      "position": [-1400, 300],
+      "credentials": {
+        "wcrmApi": {
+          "id": "SnyJoaaZ2MZV53oi",
+          "name": "wCRM account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "to": "={{ $json.from }}",
+        "textBody": "=💰 *Our Pricing Plans (After 24-hr FREE Trial)*\n\n━━━━━━━━━━━━━━━━━━━\n📊 *10 Days:* Rs. 999\n━━━━━━━━━━━━━━━━━━━\n🏆 *1 Month:* Rs. 2,499 *(Most Popular)*\n━━━━━━━━━━━━━━━━━━━\n📈 *3 Months:* Rs. 7,497\n━━━━━━━━━━━━━━━━━━━\n💎 *1 Year:* Rs. 24,999 *(Best Value)*\n━━━━━━━━━━━━━━━━━━━\n\n✅ *All plans include:*\n✓ Full WhatsApp CRM access\n✓ n8n automation integration\n✓ AI chatbot capabilities\n✓ 24/7 technical support\n✓ Regular updates\n\n🎯 Ready to start? Type *demo* to begin your free trial!\n\n📞 Have questions? Type *human* to talk to our team."
+      },
+      "id": "send-pricing",
+      "name": "💬 20. Send Pricing",
+      "type": "n8n-nodes-wcrm.wcrm",
+      "typeVersion": 1,
+      "position": [-1400, 380],
+      "credentials": {
+        "wcrmApi": {
+          "id": "SnyJoaaZ2MZV53oi",
+          "name": "wCRM account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "to": "={{ $json.from }}",
+        "textBody": "=✅ *Start Your Free Demo in 4 Simple Steps*\n\n━━━━━━━━━━━━━━━━━━━\n🔹 *Step 1:* Sign up (no credit card required)\n   👉 https://crm.srlines.net/user\n\n🔹 *Step 2:* Verify your email address\n\n🔹 *Step 3:* Go to User Menu → Meta API Keys → Connect WhatsApp\n\n🔹 *Step 4:* Complete the setup wizard & subscribe to the Free Trial Plan\n━━━━━━━━━━━━━━━━━━━\n\n📺 *Video Tutorial:* https://www.youtube.com/watch?v=I8hNRXo022k\n\n❓ Need help? Just ask or type *human* to talk to our team!"
+      },
+      "id": "send-demo",
+      "name": "💬 21. Send Demo Steps",
+      "type": "n8n-nodes-wcrm.wcrm",
+      "typeVersion": 1,
+      "position": [-1400, 460],
+      "credentials": {
+        "wcrmApi": {
+          "id": "SnyJoaaZ2MZV53oi",
+          "name": "wCRM account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "to": "={{ $json.from }}",
+        "textBody": "=📋 *Requirements to Get Started*\n\nBefore starting, please ensure you have:\n\n━━━━━━━━━━━━━━━━━━━\n1️⃣ *Facebook Account* (personal or business)\n\n2️⃣ *Website or Google Blog* (for verification)\n\n3️⃣ *WhatsApp Business mobile app account* with minimum age 3 months *OR* a mobile number without any WhatsApp account\n\n4️⃣ *Time:* Onboarding process takes 25~30 minutes\n━━━━━━━━━━━━━━━━━━━\n\n✅ Have everything ready? Type *demo* to begin!\n\n❓ Missing something? Type *human* and we'll guide you."
+      },
+      "id": "send-requirements",
+      "name": "💬 22. Send Requirements",
+      "type": "n8n-nodes-wcrm.wcrm",
+      "typeVersion": 1,
+      "position": [-1400, 540],
+      "credentials": {
+        "wcrmApi": {
+          "id": "SnyJoaaZ2MZV53oi",
+          "name": "wCRM account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "to": "={{ $json.from }}",
+        "textBody": "=💬 *Need Human Assistance?*\n\n━━━━━━━━━━━━━━━━━━━\n📱 *Chat with us live on WhatsApp:*\n+92 333 9776136\n\n⏰ *Response time:* Usually within 15-30 minutes\n\n📧 *Email:* support@srlines.net\n\n🌐 *Website:* https://crm.srlines.net\n━━━━━━━━━━━━━━━━━━━\n\nWhile you wait, feel free to ask me any questions! I can help with:\n💰 Pricing info\n🎯 Demo setup\n📋 Requirements\n📱 App tutorial\n\nHow can I assist you? 😊"
+      },
+      "id": "send-human",
+      "name": "💬 23. Send Human Contact",
+      "type": "n8n-nodes-wcrm.wcrm",
+      "typeVersion": 1,
+      "position": [-1400, 620],
+      "credentials": {
+        "wcrmApi": {
+          "id": "SnyJoaaZ2MZV53oi",
+          "name": "wCRM account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "to": "={{ $json.from }}",
+        "textBody": "=📱 *Mobile App Video Tutorial*\n\nWatch how to use our Android app:\n🎥 https://www.tiktok.com/@srlines/video/7605489029362208018\n\n━━━━━━━━━━━━━━━━━━━\n*With our mobile app you can:*\n✅ Reply to WhatsApp chats on the go\n✅ View and manage leads\n✅ Track campaign performance\n✅ Access full CRM features\n✅ Get notifications for new messages\n━━━━━━━━━━━━━━━━━━━\n\n📲 Available on Android devices.\n\nHave questions about the app? Just ask! 😊"
+      },
+      "id": "send-mobile",
+      "name": "💬 24. Send Mobile App Tutorial",
+      "type": "n8n-nodes-wcrm.wcrm",
+      "typeVersion": 1,
+      "position": [-1400, 700],
+      "credentials": {
+        "wcrmApi": {
+          "id": "SnyJoaaZ2MZV53oi",
+          "name": "wCRM account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "to": "={{ $json.from }}",
+        "textBody": "=📊 *CTWA Leads Attribution Portal*\n\nTrack your Click-to-WhatsApp ad leads with precision!\n\n━━━━━━━━━━━━━━━━━━━\n🎥 *Full Tutorial:*\nhttps://youtu.be/jutXnusN_q0?si=ES1UzyPRAmZXRgn3\n━━━━━━━━━━━━━━━━━━━\n\n*Key Benefits:*\n✅ Know exactly which ad generated each lead\n✅ Track conversions from Facebook/Instagram ads\n✅ Optimize your ad spend for better ROI\n✅ See complete customer journey\n✅ Attribution reporting dashboard\n\nPerfect for businesses running WhatsApp ad campaigns! 📈\n\nWant to learn more? Type *human* to speak with our team!"
+      },
+      "id": "send-ctwa",
+      "name": "💬 25. Send CTWA Info",
+      "type": "n8n-nodes-wcrm.wcrm",
+      "typeVersion": 1,
+      "position": [-1400, 780],
+      "credentials": {
+        "wcrmApi": {
+          "id": "SnyJoaaZ2MZV53oi",
+          "name": "wCRM account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "to": "={{ $json.from }}",
+        "textBody": "=📺 *How to Subscribe After Your Demo*\n\nWatch this complete guide:\n👉 https://www.youtube.com/watch?v=I8hNRXo022k\n\n━━━━━━━━━━━━━━━━━━━\n*Quick Steps:*\n1️⃣ Complete your free trial period\n2️⃣ Log into your account at crm.srlines.net\n3️⃣ Go to Billing → Subscription\n4️⃣ Choose your preferred plan\n5️⃣ Enter payment details\n6️⃣ Activate your subscription\n━━━━━━━━━━━━━━━━━━━\n\n💰 *Plans:*\n• 10 Days: Rs. 999\n• 1 Month: Rs. 2,499\n• 3 Months: Rs. 7,497\n• 1 Year: Rs. 24,999\n\nNeed help? Contact us at +92 333 9776136"
+      },
+      "id": "send-subscribe",
+      "name": "💬 26. Send Subscribe Guide",
+      "type": "n8n-nodes-wcrm.wcrm",
+      "typeVersion": 1,
+      "position": [-1400, 860],
+      "credentials": {
+        "wcrmApi": {
+          "id": "SnyJoaaZ2MZV53oi",
+          "name": "wCRM account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "to": "={{ $json.from }}",
+        "textBody": "=🔧 *Technical Support*\n\nI'm here to help! Here are common solutions:\n\n━━━━━━━━━━━━━━━━━━━\n📘 *Knowledge Base:* docs.srlines.net\n\n🔄 *n8n Workflow Help:* Check our templates at n8n.srlines.net\n\n📱 *App Issues:* Try clearing cache or reinstalling\n\n🔌 *Integration Help:* Connect Shopify, WooCommerce\n━━━━━━━━━━━━━━━━━━━\n\nIf you need immediate assistance, please describe your issue in detail and our support team will get back to you within 1 hour.\n\nIs there something specific you're having trouble with? 🤔"
+      },
+      "id": "send-support",
+      "name": "💬 27. Send Support Info",
+      "type": "n8n-nodes-wcrm.wcrm",
+      "typeVersion": 1,
+      "position": [-1400, 940],
+      "credentials": {
+        "wcrmApi": {
+          "id": "SnyJoaaZ2MZV53oi",
+          "name": "wCRM account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "to": "={{ $json.from }}",
+        "textBody": "=✨ *Our Powerful Features*\n\nHere's everything our platform offers:\n\n━━━━━━━━━━━━━━━━━━━\n🤖 *AI Chatbot (OpenAI)* – Smart auto replies & human-like conversations\n\n📋 *Template Chatbot* – Ready-made flows for instant automation\n\n📥 *Unified Inbox* – Manage all WhatsApp chats in one dashboard\n\n🏷️ *Tags & Notes* – Track and organize every customer easily\n\n📞 *Phone Book* – Simple contact management system\n\n📣 *Broadcast Campaigns* – Send bulk WhatsApp messages in seconds\n\n🛍️ *Shopify Integration* – Auto sync store & customer data\n\n🛒 *WooCommerce Plugin* – Order & chat automation\n\n📱 *Android App* – Manage your business anytime, anywhere\n\n📊 *CTWA Leads Attribution Portal* – Track ad leads accurately\n━━━━━━━━━━━━━━━━━━━\n\n*Plus n8n Automation!*\nConnect 400+ apps with drag & drop workflows\n\nWhich feature interests you most? 👇"
+      },
+      "id": "send-feature",
+      "name": "💬 28. Send Features List",
+      "type": "n8n-nodes-wcrm.wcrm",
+      "typeVersion": 1,
+      "position": [-1400, 1020],
+      "credentials": {
+        "wcrmApi": {
+          "id": "SnyJoaaZ2MZV53oi",
+          "name": "wCRM account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "to": "={{ $json.from }}",
+        "textBody": "=🔌 *Integrations Available*\n\nConnect your favorite platforms:\n\n━━━━━━━━━━━━━━━━━━━\n🛍️ *Shopify* – Auto sync store & customer data\n\n🛒 *WooCommerce* – Order & chat automation\n\n🤖 *n8n* – 400+ integrations via our automation platform\n\n📱 *WhatsApp* – Complete business API integration\n\n🌐 *Custom API* – Webhooks for any service\n━━━━━━━━━━━━━━━━━━━\n\nWith n8n, you can connect to:\n• Google Sheets, Gmail, Calendar\n• Slack, Discord, Telegram\n• HubSpot, Salesforce, Pipedrive\n• And 400+ more apps!\n\nNeed a specific integration? Let us know! 🔌"
+      },
+      "id": "send-integration",
+      "name": "💬 29. Send Integration Info",
+      "type": "n8n-nodes-wcrm.wcrm",
+      "typeVersion": 1,
+      "position": [-1400, 1100],
+      "credentials": {
+        "wcrmApi": {
+          "id": "SnyJoaaZ2MZV53oi",
+          "name": "wCRM account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "to": "={{ $json.from }}",
+        "textBody": "=🙏 *You're welcome!*\n\nI'm glad I could help! Is there anything else you'd like to know about our WhatsApp CRM platform?\n\n━━━━━━━━━━━━━━━━━━━\n*Quick links:*\n💰 Type *pricing* for plans\n🎯 Type *demo* to start trial\n📞 Type *human* to talk to team\n━━━━━━━━━━━━━━━━━━━\n\nHave a great day! 😊"
+      },
+      "id": "send-thanks",
+      "name": "💬 30. Send Thanks Response",
+      "type": "n8n-nodes-wcrm.wcrm",
+      "typeVersion": 1,
+      "position": [-1400, 1180],
+      "credentials": {
+        "wcrmApi": {
+          "id": "SnyJoaaZ2MZV53oi",
+          "name": "wCRM account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "to": "={{ $json.from }}",
+        "textBody": "=🤖 *I'm here to help!*\n\nI didn't quite understand your question. Here's what I can assist you with:\n\n━━━━━━━━━━━━━━━━━━━\n💰 Type *pricing* - See our plans\n🎯 Type *demo* - Start free trial\n📋 Type *requirements* - What you need\n📞 Type *human* - Talk to a person\n📱 Type *app* - Mobile app tutorial\n📊 Type *ctwa* - Ad lead tracking\n⚙️ Type *features* - Platform overview\n🔌 Type *integration* - Connect apps\n━━━━━━━━━━━━━━━━━━━\n\nOr just ask me a question in your own words! 😊"
+      },
+      "id": "send-fallback",
+      "name": "💬 31. Send Help Menu",
+      "type": "n8n-nodes-wcrm.wcrm",
+      "typeVersion": 1,
+      "position": [-1400, 1260],
+      "credentials": {
+        "wcrmApi": {
+          "id": "SnyJoaaZ2MZV53oi",
+          "name": "wCRM account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ==========================================\n// NODE: wCRM Integration\n// PURPOSE: Log conversation to wCRM\n// FEATURES: Create/update contacts, add notes, tags, lead scoring\n// VERSION: 2.8.3 Compatible\n// ==========================================\n\nconst item = $input.first().json;\n\n// Prepare CRM data\nconst crmData = {\n  // Core fields\n  waId: item.waId,\n  name: item.contactName,\n  phone: item.from,\n  email: item.classification?.detectedEntities?.email || '',\n  \n  // Conversation data\n  lastMessage: item.textBody?.substring(0, 500) || '',\n  lastMessageType: item.messageType,\n  lastInteraction: new Date().toISOString(),\n  messageCount: item.messageCount || 1,\n  \n  // Lead data\n  isLead: item.isQualifiedLead || false,\n  leadScore: item.leadScore || 0,\n  leadStage: item.leadStage || 'visitor',\n  \n  // Classification\n  intent: item.intent || 'unknown',\n  confidence: item.confidence || 0,\n  language: item.classification?.language || 'en',\n  \n  // Topics\n  interestedIn: item.interestedIn || [],\n  mentionedTopics: item.mentionedTopics || [],\n  \n  // Tags for CRM\n  tags: [],\n  \n  // Notes\n  notes: '',\n  \n  // Source\n  source: 'whatsapp_chatbot',\n  \n  // Metadata\n  timestamp: new Date().toISOString()\n};\n\n// Add tags based on intent\nif (item.intent && item.intent !== 'unknown') {\n  crmData.tags.push(`intent_${item.intent}`);\n}\n\n// Add tags based on lead stage\nif (crmData.leadStage) {\n  crmData.tags.push(`stage_${crmData.leadStage}`);\n}\n\n// Add tags based on qualification\nif (item.isQualifiedLead) {\n  crmData.tags.push('qualified_lead');\n}\n\nif (item.leadScore >= 80) {\n  crmData.tags.push('hot_lead');\n} else if (item.leadScore >= 50) {\n  crmData.tags.push('warm_lead');\n}\n\n// Add language tag\nif (crmData.language !== 'en') {\n  crmData.tags.push(`lang_${crmData.language}`);\n}\n\n// Add priority tag\nif (item.priority === 'urgent') {\n  crmData.tags.push('urgent');\n}\n\n// Create notes summary\nconst noteParts = [];\nif (item.messageCount === 1) {\n  noteParts.push('New conversation started');\n}\nnoteParts.push(`Intent: ${item.intent} (${Math.round(item.confidence * 100)}% confidence)`);\nif (item.interestedIn?.length > 0) {\n  noteParts.push(`Interested in: ${item.interestedIn.join(', ')}`);\n}\nif (item.classification?.detectedEntities?.phoneNumber) {\n  noteParts.push(`Phone shared: ${item.classification.detectedEntities.phoneNumber}`);\n}\ncrmData.notes = noteParts.join(' | ');\n\n// Log to console for debugging\nconsole.log('CRM Update:', JSON.stringify({\n  waId: crmData.waId,\n  name: crmData.name,\n  intent: crmData.intent,\n  leadScore: crmData.leadScore,\n  tags: crmData.tags\n}, null, 2));\n\n// In production with wCRM, you would use:\n// const wcrm = n8n.nodes.wcrm;\n// await wcrm.createOrUpdateContact(crmData);\n\n// Return original item for follow-up nodes\nreturn [{\n  json: {\n    ...item,\n    crmLogged: true,\n    crmData: crmData\n  }\n}];",
+        "language": "javaScript"
+      },
+      "id": "crm-integration",
+      "name": "📝 32. wCRM Integration",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1200, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ==========================================\n// NODE: Follow-up Scheduler\n// PURPOSE: Schedule follow-up messages at intervals\n// FEATURES: 4 follow-ups at 1h, 24h, 3d, 7d\n// VERSION: 2.8.3 Compatible\n// ==========================================\n\nconst item = $input.first().json;\nconst waId = item.waId;\nconst currentTime = Date.now();\n\n// Initialize follow-up storage\nconst followupStore = $getWorkflowStaticData('global');\nif (!followupStore.followups) {\n  followupStore.followups = {};\n}\n\n// Get or create follow-up record for this user\nconst userFollowups = followupStore.followups[waId] || {\n  waId: waId,\n  phone: item.from,\n  name: item.contactName,\n  \n  // Timestamps\n  lastInboundTime: currentTime,\n  lastOutboundTime: null,\n  \n  // Follow-up tracking\n  followup1: {\n    sent: false,\n    sentAt: null,\n    type: '1_hour'\n  },\n  followup2: {\n    sent: false,\n    sentAt: null,\n    type: '24_hours'\n  },\n  followup3: {\n    sent: false,\n    sentAt: null,\n    type: '3_days'\n  },\n  followup4: {\n    sent: false,\n    sentAt: null,\n    type: '7_days'\n  },\n  \n  // Conversation context\n  lastIntent: item.intent,\n  interestedIn: item.interestedIn || [],\n  leadScore: item.leadScore || 0,\n  \n  // Metadata\n  createdAt: currentTime,\n  updatedAt: currentTime\n};\n\n// Update with latest data\nuserFollowups.lastInboundTime = currentTime;\nuserFollowups.lastIntent = item.intent || userFollowups.lastIntent;\nuserFollowups.interestedIn = item.interestedIn || userFollowups.interestedIn;\nuserFollowups.leadScore = item.leadScore || userFollowups.leadScore;\nuserFollowups.updatedAt = currentTime;\n\n// Reset follow-ups if they were sent but user is engaging again?\n// This is optional - keeps follow-ups as scheduled\n\n// Save back to store\nfollowupStore.followups[waId] = userFollowups;\n\n// Return original item\nreturn [{\n  json: item\n}];",
+        "language": "javaScript"
+      },
+      "id": "followup-scheduler",
+      "name": "⏰ 33. Follow-up Scheduler",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1000, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ==========================================\n// NODE: Analytics Logger\n// PURPOSE: Track all conversations for insights\n// FEATURES: Message counts, intent trends, lead conversion tracking\n// VERSION: 2.8.3 Compatible\n// ==========================================\n\nconst item = $input.first().json;\n\n// Initialize analytics storage\nconst analyticsStore = $getWorkflowStaticData('global');\nif (!analyticsStore.analytics) {\n  analyticsStore.analytics = {\n    messages: [],\n    intents: {},\n    leads: {\n      total: 0,\n      qualified: 0,\n      converted: 0\n    },\n    dailyStats: {},\n    lastUpdated: new Date().toISOString()\n  };\n}\n\n// Create analytics entry\nconst analyticsEntry = {\n  timestamp: new Date().toISOString(),\n  waId: item.waId,\n  name: item.contactName,\n  message: item.textBody?.substring(0, 100) || '[Media]',\n  messageType: item.messageType,\n  intent: item.intent,\n  confidence: item.confidence,\n  isQualifiedLead: item.isQualifiedLead || false,\n  leadScore: item.leadScore,\n  messageCount: item.messageCount,\n  language: item.classification?.language || 'en',\n  topics: item.mentionedTopics || [],\n  responseTime: item.responseTime || 0\n};\n\n// Add to messages array (keep last 1000 for performance)\nanalyticsStore.analytics.messages.push(analyticsEntry);\nif (analyticsStore.analytics.messages.length > 1000) {\n  analyticsStore.analytics.messages = analyticsStore.analytics.messages.slice(-1000);\n}\n\n// Update intent counts\nconst intent = item.intent || 'unknown';\nanalyticsStore.analytics.intents[intent] = (analyticsStore.analytics.intents[intent] || 0) + 1;\n\n// Update lead counts\nif (item.isQualifiedLead) {\n  analyticsStore.analytics.leads.qualified++;\n}\nanalyticsStore.analytics.leads.total++;\n\n// Update daily stats\nconst today = new Date().toISOString().split('T')[0];\nif (!analyticsStore.analytics.dailyStats[today]) {\n  analyticsStore.analytics.dailyStats[today] = {\n    messages: 0,\n    uniqueUsers: 0,\n    intents: {},\n    leads: 0,\n    users: new Set()\n  };\n}\n\nanalyticsStore.analytics.dailyStats[today].messages++;\nanalyticsStore.analytics.dailyStats[today].users.add(item.waId);\nanalyticsStore.analytics.dailyStats[today].uniqueUsers = analyticsStore.analytics.dailyStats[today].users.size;\n\nconst dailyIntent = analyticsStore.analytics.dailyStats[today].intents;\ndailyIntent[intent] = (dailyIntent[intent] || 0) + 1;\n\nif (item.isQualifiedLead) {\n  analyticsStore.analytics.dailyStats[today].leads++;\n}\n\n// Convert Set back to array for storage\nanalyticsStore.analytics.dailyStats[today].users = Array.from(analyticsStore.analytics.dailyStats[today].users);\n\nanalyticsStore.analytics.lastUpdated = new Date().toISOString();\n\n// Log summary every 100 messages\nif (analyticsStore.analytics.messages.length % 100 === 0) {\n  console.log('Analytics Summary:', {\n    totalMessages: analyticsStore.analytics.messages.length,\n    uniqueUsers: Object.keys(analyticsStore.analytics.dailyStats).reduce((acc, day) => {\n      return Math.max(acc, analyticsStore.analytics.dailyStats[day].uniqueUsers);\n    }, 0),\n    topIntents: Object.entries(analyticsStore.analytics.intents)\n      .sort((a, b) => b[1] - a[1])\n      .slice(0, 5),\n    qualifiedLeads: analyticsStore.analytics.leads.qualified\n  });\n}\n\nreturn [{\n  json: item\n}];",
+        "language": "javaScript"
+      },
+      "id": "analytics-logger",
+      "name": "📊 34. Analytics Logger",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-800, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ==========================================\n// NODE: Execution Complete\n// PURPOSE: Final node to mark successful execution\n// VERSION: 2.8.3 Compatible\n// ==========================================\n\nconst item = $input.first().json;\n\nconsole.log(`✅ Workflow completed for ${item.contactName} (${item.waId})`);\n\nreturn [{\n  json: {\n    success: true,\n    timestamp: new Date().toISOString(),\n    waId: item.waId,\n    name: item.contactName,\n    intent: item.intent,\n    messageCount: item.messageCount,\n    isQualifiedLead: item.isQualifiedLead\n  }\n}];",
+        "language": "javaScript"
+      },
+      "id": "execution-complete",
+      "name": "✅ 35. Execution Complete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-600, 400]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "hours": 1
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "⏰ 36. Schedule Trigger (Every Hour)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [-2000, 800]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ==========================================\n// NODE: Follow-up Checker\n// PURPOSE: Check for users who need follow-ups\n// FEATURES: 4 follow-ups at 1h, 24h, 3d, 7d\n// VERSION: 2.8.3 Compatible\n// ==========================================\n\nconst now = Date.now();\nconst followupStore = $getWorkflowStaticData('global');\nconst messagesToSend = [];\n\n// Time constants in milliseconds\nconst ONE_HOUR = 60 * 60 * 1000;\nconst ONE_DAY = 24 * ONE_HOUR;\nconst THREE_DAYS = 3 * ONE_DAY;\nconst SEVEN_DAYS = 7 * ONE_DAY;\n\nif (!followupStore.followups) {\n  console.log('No follow-ups scheduled');\n  return [{ json: { messagesToSend: [] } }];\n}\n\n// Check each user for follow-up eligibility\nfor (const [waId, data] of Object.entries(followupStore.followups)) {\n  const timeSinceLastInbound = now - (data.lastInboundTime || now);\n  \n  // Skip if no lastInboundTime (shouldn't happen)\n  if (!data.lastInboundTime) continue;\n  \n  // Follow-up 1: After 1 hour\n  if (!data.followup1?.sent && timeSinceLastInbound >= ONE_HOUR) {\n    messagesToSend.push({\n      waId: waId,\n      phone: data.phone,\n      name: data.name,\n      followupType: 'followup1',\n      followupNumber: 1,\n      timing: '1_hour',\n      leadScore: data.leadScore,\n      interestedIn: data.interestedIn\n    });\n    data.followup1.sent = true;\n    data.followup1.sentAt = now;\n    data.lastOutboundTime = now;\n    data.followupCount = (data.followupCount || 0) + 1;\n  }\n  // Follow-up 2: After 24 hours\n  else if (!data.followup2?.sent && timeSinceLastInbound >= ONE_DAY) {\n    messagesToSend.push({\n      waId: waId,\n      phone: data.phone,\n      name: data.name,\n      followupType: 'followup2',\n      followupNumber: 2,\n      timing: '24_hours',\n      leadScore: data.leadScore,\n      interestedIn: data.interestedIn\n    });\n    data.followup2.sent = true;\n    data.followup2.sentAt = now;\n    data.lastOutboundTime = now;\n    data.followupCount = (data.followupCount || 0) + 1;\n  }\n  // Follow-up 3: After 3 days\n  else if (!data.followup3?.sent && timeSinceLastInbound >= THREE_DAYS) {\n    messagesToSend.push({\n      waId: waId,\n      phone: data.phone,\n      name: data.name,\n      followupType: 'followup3',\n      followupNumber: 3,\n      timing: '3_days',\n      leadScore: data.leadScore,\n      interestedIn: data.interestedIn\n    });\n    data.followup3.sent = true;\n    data.followup3.sentAt = now;\n    data.lastOutboundTime = now;\n    data.followupCount = (data.followupCount || 0) + 1;\n  }\n  // Follow-up 4: After 7 days\n  else if (!data.followup4?.sent && timeSinceLastInbound >= SEVEN_DAYS) {\n    messagesToSend.push({\n      waId: waId,\n      phone: data.phone,\n      name: data.name,\n      followupType: 'followup4',\n      followupNumber: 4,\n      timing: '7_days',\n      leadScore: data.leadScore,\n      interestedIn: data.interestedIn\n    });\n    data.followup4.sent = true;\n    data.followup4.sentAt = now;\n    data.lastOutboundTime = now;\n    data.followupCount = (data.followupCount || 0) + 1;\n  }\n}\n\n// Save updated store\nfollowupStore.followups = followupStore.followups;\n\nconsole.log(`Found ${messagesToSend.length} follow-ups to send`);\n\n// Return array of messages to send\nreturn messagesToSend.map(msg => ({ json: msg }));",
+        "language": "javaScript"
+      },
+      "id": "followup-checker",
+      "name": "🔍 37. Follow-up Checker",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1800, 800]
+    },
+    {
+      "parameters": {
+        "to": "={{ $json.phone }}",
+        "textBody": "=👋 *Just checking in!*\n\nHi *{{ $json.name }}*, did you get all the information you needed about our WhatsApp CRM platform?\n\nIf you have any questions, just reply here - I'm happy to help! 😊\n\n━━━━━━━━━━━━━━━━━━━\nQuick links:\n💰 Type *pricing* for plans\n🎯 Type *demo* to start trial\n📞 Type *human* to talk to team\n━━━━━━━━━━━━━━━━━━━"
+      },
+      "id": "send-followup1",
+      "name": "💬 38. Follow-up 1 (1 Hour)",
+      "type": "n8n-nodes-wcrm.wcrm",
+      "typeVersion": 1,
+      "position": [-1600, 700],
+      "credentials": {
+        "wcrmApi": {
+          "id": "SnyJoaaZ2MZV53oi",
+          "name": "wCRM account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "to": "={{ $json.phone }}",
+        "textBody": "=💡 *Still thinking about automating your WhatsApp?*\n\nHi *{{ $json.name }}*, remember you can start with a free demo:\n👉 https://crm.srlines.net/user\n\n✅ No credit card required\n✅ Just 4 simple steps\n✅ Full access for 24 hours\n\nNeed help getting started? Just reply with your question! 🚀"
+      },
+      "id": "send-followup2",
+      "name": "💬 39. Follow-up 2 (24 Hours)",
+      "type": "n8n-nodes-wcrm.wcrm",
+      "typeVersion": 1,
+      "position": [-1600, 780],
+      "credentials": {
+        "wcrmApi": {
+          "id": "SnyJoaaZ2MZV53oi",
+          "name": "wCRM account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "to": "={{ $json.phone }}",
+        "textBody": "=🎯 *Special Offer Reminder*\n\nHi *{{ $json.name }}*, our plans start at just Rs. 999!\n\n━━━━━━━━━━━━━━━━━━━\n💰 *10 Days:* Rs. 999\n💰 *1 Month:* Rs. 2,499 🏆\n💰 *3 Months:* Rs. 7,497\n💰 *1 Year:* Rs. 24,999\n━━━━━━━━━━━━━━━━━━━\n\nJoin businesses saving 70% time with automated WhatsApp.\n\nStart here: https://crm.srlines.net/user\n\nQuestions? Just reply! 💬"
+      },
+      "id": "send-followup3",
+      "name": "💬 40. Follow-up 3 (3 Days)",
+      "type": "n8n-nodes-wcrm.wcrm",
+      "typeVersion": 1,
+      "position": [-1600, 860],
+      "credentials": {
+        "wcrmApi": {
+          "id": "SnyJoaaZ2MZV53oi",
+          "name": "wCRM account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "to": "={{ $json.phone }}",
+        "textBody": "=🤝 *Let's connect directly!*\n\nHi *{{ $json.name }}*, sometimes it's easier to chat with a human.\n\n━━━━━━━━━━━━━━━━━━━\n📱 *Talk to us live on WhatsApp:*\n+92 333 9776136\n\n🌐 *Visit our website:*\nhttps://crm.srlines.net\n━━━━━━━━━━━━━━━━━━━\n\nWe're here to help grow your business! 🚀\n\nHave a specific question? Just reply and I'll help! 😊"
+      },
+      "id": "send-followup4",
+      "name": "💬 41. Follow-up 4 (1 Week)",
+      "type": "n8n-nodes-wcrm.wcrm",
+      "typeVersion": 1,
+      "position": [-1600, 940],
+      "credentials": {
+        "wcrmApi": {
+          "id": "SnyJoaaZ2MZV53oi",
+          "name": "wCRM account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ==========================================\n// NODE: Follow-up Complete\n// PURPOSE: Log follow-up sent\n// VERSION: 2.8.3 Compatible\n// ==========================================\n\nconst item = $input.first().json;\n\nconsole.log(`✅ Follow-up ${item.followupNumber} (${item.timing}) sent to ${item.name} (${item.waId})`);\n\nreturn [{\n  json: {\n    success: true,\n    type: 'followup_sent',\n    waId: item.waId,\n    name: item.name,\n    followupNumber: item.followupNumber,\n    timing: item.timing,\n    timestamp: new Date().toISOString()\n  }\n}];",
+        "language": "javaScript"
+      },
+      "id": "followup-complete",
+      "name": "✅ 42. Follow-up Complete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1400, 800]
+    }
+  ],
+  "connections": {
+    "📩 1. Incoming Message Trigger": {
+      "main": [
+        [
+          {
+            "node": "🔧 2. Comprehensive Parser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔧 2. Comprehensive Parser": {
+      "main": [
+        [
+          {
+            "node": "🧠 3. Advanced Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🧠 3. Advanced Memory": {
+      "main": [
+        [
+          {
+            "node": "🎯 4. Advanced Intent Classifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🎯 4. Advanced Intent Classifier": {
+      "main": [
+        [
+          {
+            "node": "🔀 5. Urgent?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔀 5. Urgent?": {
+      "branches": {
+        "true": [
+          {
+            "node": "💬 18. Send Urgent Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        "false": [
+          {
+            "node": "🔀 6. Greeting?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      }
+    },
+    "🔀 6. Greeting?": {
+      "branches": {
+        "true": [
+          {
+            "node": "💬 19. Send Welcome",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        "false": [
+          {
+            "node": "🔀 7. Pricing?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      }
+    },
+    "🔀 7. Pricing?": {
+      "branches": {
+        "true": [
+          {
+            "node": "💬 20. Send Pricing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        "false": [
+          {
+            "node": "🔀 8. Demo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      }
+    },
+    "🔀 8. Demo?": {
+      "branches": {
+        "true": [
+          {
+            "node": "💬 21. Send Demo Steps",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        "false": [
+          {
+            "node": "🔀 9. Requirements?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      }
+    },
+    "🔀 9. Requirements?": {
+      "branches": {
+        "true": [
+          {
+            "node": "💬 22. Send Requirements",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        "false": [
+          {
+            "node": "🔀 10. Human?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      }
+    },
+    "🔀 10. Human?": {
+      "branches": {
+        "true": [
+          {
+            "node": "💬 23. Send Human Contact",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        "false": [
+          {
+            "node": "🔀 11. Mobile App?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      }
+    },
+    "🔀 11. Mobile App?": {
+      "branches": {
+        "true": [
+          {
+            "node": "💬 24. Send Mobile App Tutorial",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        "false": [
+          {
+            "node": "🔀 12. CTWA?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      }
+    },
+    "🔀 12. CTWA?": {
+      "branches": {
+        "true": [
+          {
+            "node": "💬 25. Send CTWA Info",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        "false": [
+          {
+            "node": "🔀 13. Subscribe?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      }
+    },
+    "🔀 13. Subscribe?": {
+      "branches": {
+        "true": [
+          {
+            "node": "💬 26. Send Subscribe Guide",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        "false": [
+          {
+            "node": "🔀 14. Support?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      }
+    },
+    "🔀 14. Support?": {
+      "branches": {
+        "true": [
+          {
+            "node": "💬 27. Send Support Info",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        "false": [
+          {
+            "node": "🔀 15. Feature?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      }
+    },
+    "🔀 15. Feature?": {
+      "branches": {
+        "true": [
+          {
+            "node": "💬 28. Send Features List",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        "false": [
+          {
+            "node": "🔀 16. Integration?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      }
+    },
+    "🔀 16. Integration?": {
+      "branches": {
+        "true": [
+          {
+            "node": "💬 29. Send Integration Info",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        "false": [
+          {
+            "node": "🔀 17. Thanks?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      }
+    },
+    "🔀 17. Thanks?": {
+      "branches": {
+        "true": [
+          {
+            "node": "💬 30. Send Thanks Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        "false": [
+          {
+            "node": "💬 31. Send Help Menu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      }
+    },
+    "💬 18. Send Urgent Response": {
+      "main": [
+        [
+          {
+            "node": "📝 32. wCRM Integration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💬 19. Send Welcome": {
+      "main": [
+        [
+          {
+            "node": "📝 32. wCRM Integration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💬 20. Send Pricing": {
+      "main": [
+        [
+          {
+            "node": "📝 32. wCRM Integration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💬 21. Send Demo Steps": {
+      "main": [
+        [
+          {
+            "node": "📝 32. wCRM Integration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💬 22. Send Requirements": {
+      "main": [
+        [
+          {
+            "node": "📝 32. wCRM Integration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💬 23. Send Human Contact": {
+      "main": [
+        [
+          {
+            "node": "📝 32. wCRM Integration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💬 24. Send Mobile App Tutorial": {
+      "main": [
+        [
+          {
+            "node": "📝 32. wCRM Integration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💬 25. Send CTWA Info": {
+      "main": [
+        [
+          {
+            "node": "📝 32. wCRM Integration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💬 26. Send Subscribe Guide": {
+      "main": [
+        [
+          {
+            "node": "📝 32. wCRM Integration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💬 27. Send Support Info": {
+      "main": [
+        [
+          {
+            "node": "📝 32. wCRM Integration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💬 28. Send Features List": {
+      "main": [
+        [
+          {
+            "node": "📝 32. wCRM Integration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💬 29. Send Integration Info": {
+      "main": [
+        [
+          {
+            "node": "📝 32. wCRM Integration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💬 30. Send Thanks Response": {
+      "main": [
+        [
+          {
+            "node": "📝 32. wCRM Integration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💬 31. Send Help Menu": {
+      "main": [
+        [
+          {
+            "node": "📝 32. wCRM Integration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📝 32. wCRM Integration": {
+      "main": [
+        [
+          {
+            "node": "⏰ 33. Follow-up Scheduler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏰ 33. Follow-up Scheduler": {
+      "main": [
+        [
+          {
+            "node": "📊 34. Analytics Logger",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 34. Analytics Logger": {
+      "main": [
+        [
+          {
+            "node": "✅ 35. Execution Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏰ 36. Schedule Trigger (Every Hour)": {
+      "main": [
+        [
+          {
+            "node": "🔍 37. Follow-up Checker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 37. Follow-up Checker": {
+      "main": [
+        [
+          {
+            "node": "💬 38. Follow-up 1 (1 Hour)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "💬 39. Follow-up 2 (24 Hours)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "💬 40. Follow-up 3 (3 Days)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "💬 41. Follow-up 4 (1 Week)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💬 38. Follow-up 1 (1 Hour)": {
+      "main": [
+        [
+          {
+            "node": "✅ 42. Follow-up Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💬 39. Follow-up 2 (24 Hours)": {
+      "main": [
+        [
+          {
+            "node": "✅ 42. Follow-up Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💬 40. Follow-up 3 (3 Days)": {
+      "main": [
+        [
+          {
+            "node": "✅ 42. Follow-up Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💬 41. Follow-up 4 (1 Week)": {
+      "main": [
+        [
+          {
+            "node": "✅ 42. Follow-up Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Karachi",
+    "errorWorkflow": "",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "binaryDataMode": "filesystem"
+  },
+  "active": true,
+  "tags": ["whatsapp", "crm", "chatbot", "production", "followups", "wCRM", "ultimate"],
+  "versionId": "1.0.0",
+  "createdAt": "2026-02-23T10:00:00.000Z",
+  "updatedAt": "2026-02-23T10:00:00.000Z"
+}
