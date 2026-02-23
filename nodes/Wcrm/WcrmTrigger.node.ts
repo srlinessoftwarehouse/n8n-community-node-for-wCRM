@@ -33,7 +33,7 @@ export class WcrmTrigger implements INodeType {
 				name: 'default',
 				httpMethod: 'POST',
 				responseMode: 'onReceived',
-				path: '={{$parameter["webhookPath"]}}',
+				path: 'wcrm-webhook',
 			},
 		],
 		properties: [
