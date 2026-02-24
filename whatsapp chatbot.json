@@ -796,11 +796,11 @@
         "language": "javaScript"
       },
       "id": "execution-complete",
-      "name": "✅ 35. Execution Complete",
+      "name": "✅ 36. Execution Complete",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -600,
+        -400,
         400
       ]
     },
@@ -987,6 +987,76 @@
         "wcrmApi": {
           "id": "SnyJoaaZ2MZV53oi",
           "name": "wCRM account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ==========================================\n// NODE: Lead Evaluation\n// PURPOSE: Evaluate and score leads based on conversation data\n// FEATURES: Lead scoring, categorization (hot/warm/cold),\n//           conversion readiness assessment, evaluation storage\n// VERSION: 2.8.3 Compatible\n// ==========================================\n\nconst item = $input.first().json;\n\n// Initialize evaluation storage\nconst evalStore = $getWorkflowStaticData('global');\nif (!evalStore.evaluations) {\n  evalStore.evaluations = {\n    leads: {},\n    summary: {\n      totalEvaluated: 0,\n      hot: 0,\n      warm: 0,\n      cold: 0,\n      converted: 0,\n      lastUpdated: null\n    }\n  };\n}\n\n// --- Scoring Criteria ---\nlet score = item.leadScore || 0;\nconst factors = [];\n\n// 1. Message engagement (more messages = more engaged)\nconst msgCount = item.messageCount || 1;\nif (msgCount >= 10) {\n  score += 25;\n  factors.push('High engagement (10+ messages)');\n} else if (msgCount >= 5) {\n  score += 15;\n  factors.push('Medium engagement (5+ messages)');\n} else if (msgCount >= 2) {\n  score += 5;\n  factors.push('Low engagement (2+ messages)');\n}\n\n// 2. Intent signals\nconst intent = (item.intent || '').toLowerCase();\nconst highIntentSignals = ['pricing', 'demo', 'requirements', 'subscribe', 'integration'];\nconst mediumIntentSignals = ['features', 'support', 'mobile_app'];\nconst lowIntentSignals = ['greeting', 'thanks', 'general'];\n\nif (highIntentSignals.includes(intent)) {\n  score += 30;\n  factors.push(`High-intent signal: ${intent}`);\n} else if (mediumIntentSignals.includes(intent)) {\n  score += 15;\n  factors.push(`Medium-intent signal: ${intent}`);\n} else if (lowIntentSignals.includes(intent)) {\n  score += 5;\n  factors.push(`Low-intent signal: ${intent}`);\n}\n\n// 3. Qualified lead flag from earlier classification\nif (item.isQualifiedLead) {\n  score += 20;\n  factors.push('Pre-qualified lead');\n}\n\n// 4. Topics of interest\nconst topics = item.mentionedTopics || [];\nif (topics.length >= 3) {\n  score += 10;\n  factors.push(`Multiple interests (${topics.length} topics)`);\n}\n\n// 5. Confidence level from intent classifier\nconst confidence = item.confidence || 0;\nif (confidence >= 0.8) {\n  score += 10;\n  factors.push('High confidence classification');\n}\n\n// --- Categorize Lead ---\nlet category = 'cold';\nlet recommendation = '';\n\nif (score >= 70) {\n  category = 'hot';\n  recommendation = 'Immediate follow-up recommended. High conversion potential.';\n} else if (score >= 40) {\n  category = 'warm';\n  recommendation = 'Nurture with targeted content. Schedule follow-up within 24h.';\n} else {\n  category = 'cold';\n  recommendation = 'Add to drip campaign. Monitor for future engagement.';\n}\n\n// --- Store evaluation ---\nconst evaluation = {\n  waId: item.waId,\n  name: item.contactName,\n  phone: item.from,\n  score: Math.min(score, 100),\n  category: category,\n  factors: factors,\n  recommendation: recommendation,\n  intent: intent,\n  messageCount: msgCount,\n  isQualifiedLead: item.isQualifiedLead || false,\n  topics: topics,\n  evaluatedAt: new Date().toISOString()\n};\n\n// Save/update lead evaluation\nevalStore.evaluations.leads[item.waId] = evaluation;\nevalStore.evaluations.summary.totalEvaluated++;\n\n// Update category counters\nif (category === 'hot') evalStore.evaluations.summary.hot++;\nelse if (category === 'warm') evalStore.evaluations.summary.warm++;\nelse evalStore.evaluations.summary.cold++;\n\nevalStore.evaluations.summary.lastUpdated = new Date().toISOString();\n\n// Return enriched item with evaluation data\nreturn [{\n  json: {\n    ...item,\n    evaluation: evaluation\n  }\n}];",
+        "language": "javaScript"
+      },
+      "id": "lead-evaluation",
+      "name": "📋 35. Lead Evaluation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -600,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "daily-summary-trigger",
+      "name": "⏰ 43. Daily Summary Trigger (8 AM)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -2000,
+        1200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ==========================================\n// NODE: Daily Summary Compiler\n// PURPOSE: Compile daily analytics and lead evaluation data\n//          into an HTML email summary\n// VERSION: 2.8.3 Compatible\n// ==========================================\n\nconst analyticsStore = $getWorkflowStaticData('global');\nconst analytics = analyticsStore.analytics || { messages: [], intents: {}, leads: { total: 0, qualified: 0, converted: 0 }, dailyStats: {} };\nconst evaluations = (analyticsStore.evaluations || { leads: {}, summary: { totalEvaluated: 0, hot: 0, warm: 0, cold: 0 } });\n\nconst today = new Date();\nconst yesterday = new Date(today);\nyesterday.setDate(yesterday.getDate() - 1);\nconst yesterdayStr = yesterday.toISOString().split('T')[0];\nconst todayStr = today.toISOString().split('T')[0];\n\n// Get yesterday's stats\nconst dailyStats = analytics.dailyStats[yesterdayStr] || { messages: 0, uniqueUsers: 0, intents: {}, leads: 0, users: [] };\n\n// Get all lead evaluations\nconst allLeads = evaluations.leads || {};\nconst leadList = Object.values(allLeads);\n\n// Separate leads by category\nconst hotLeads = leadList.filter(l => l.category === 'hot');\nconst warmLeads = leadList.filter(l => l.category === 'warm');\nconst coldLeads = leadList.filter(l => l.category === 'cold');\n\n// Recent evaluations (last 24 hours)\nconst oneDayAgo = new Date(today.getTime() - 24 * 60 * 60 * 1000).toISOString();\nconst recentEvals = leadList.filter(l => l.evaluatedAt >= oneDayAgo);\n\n// Top intents\nconst intentEntries = Object.entries(analytics.intents || {})\n  .sort((a, b) => b[1] - a[1])\n  .slice(0, 10);\n\n// Build HTML email\nlet html = `\n<div style=\"font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px;\">\n  <div style=\"background: linear-gradient(135deg, #25D366, #128C7E); padding: 20px; border-radius: 10px 10px 0 0; text-align: center;\">\n    <h1 style=\"color: white; margin: 0;\">📊 WhatsApp Chatbot Daily Summary</h1>\n    <p style=\"color: #E0F7E9; margin: 5px 0 0 0;\">Report for ${yesterdayStr}</p>\n  </div>\n\n  <div style=\"background: #f9f9f9; padding: 20px; border: 1px solid #ddd;\">\n\n    <!-- Overview Section -->\n    <h2 style=\"color: #128C7E; border-bottom: 2px solid #25D366; padding-bottom: 8px;\">📈 Daily Overview</h2>\n    <table style=\"width: 100%; border-collapse: collapse; margin-bottom: 20px;\">\n      <tr>\n        <td style=\"padding: 10px; background: #E8F5E9; border-radius: 5px; text-align: center; width: 25%;\">\n          <div style=\"font-size: 28px; font-weight: bold; color: #2E7D32;\">${dailyStats.messages}</div>\n          <div style=\"color: #666; font-size: 12px;\">Messages</div>\n        </td>\n        <td style=\"padding: 10px; background: #E3F2FD; border-radius: 5px; text-align: center; width: 25%;\">\n          <div style=\"font-size: 28px; font-weight: bold; color: #1565C0;\">${dailyStats.uniqueUsers}</div>\n          <div style=\"color: #666; font-size: 12px;\">Unique Users</div>\n        </td>\n        <td style=\"padding: 10px; background: #FFF3E0; border-radius: 5px; text-align: center; width: 25%;\">\n          <div style=\"font-size: 28px; font-weight: bold; color: #E65100;\">${dailyStats.leads}</div>\n          <div style=\"color: #666; font-size: 12px;\">New Leads</div>\n        </td>\n        <td style=\"padding: 10px; background: #FCE4EC; border-radius: 5px; text-align: center; width: 25%;\">\n          <div style=\"font-size: 28px; font-weight: bold; color: #C62828;\">${recentEvals.length}</div>\n          <div style=\"color: #666; font-size: 12px;\">Evaluated</div>\n        </td>\n      </tr>\n    </table>\n\n    <!-- Lead Evaluation Summary -->\n    <h2 style=\"color: #128C7E; border-bottom: 2px solid #25D366; padding-bottom: 8px;\">📋 Lead Evaluation Summary</h2>\n    <table style=\"width: 100%; border-collapse: collapse; margin-bottom: 20px;\">\n      <tr>\n        <td style=\"padding: 10px; background: #FFEBEE; border-radius: 5px; text-align: center; width: 33%;\">\n          <div style=\"font-size: 24px; font-weight: bold; color: #D32F2F;\">🔥 ${hotLeads.length}</div>\n          <div style=\"color: #666; font-size: 12px;\">Hot Leads</div>\n        </td>\n        <td style=\"padding: 10px; background: #FFF8E1; border-radius: 5px; text-align: center; width: 33%;\">\n          <div style=\"font-size: 24px; font-weight: bold; color: #F57F17;\">🌡️ ${warmLeads.length}</div>\n          <div style=\"color: #666; font-size: 12px;\">Warm Leads</div>\n        </td>\n        <td style=\"padding: 10px; background: #E3F2FD; border-radius: 5px; text-align: center; width: 33%;\">\n          <div style=\"font-size: 24px; font-weight: bold; color: #1565C0;\">❄️ ${coldLeads.length}</div>\n          <div style=\"color: #666; font-size: 12px;\">Cold Leads</div>\n        </td>\n      </tr>\n    </table>\n\n    <!-- All-Time Stats -->\n    <h2 style=\"color: #128C7E; border-bottom: 2px solid #25D366; padding-bottom: 8px;\">📊 All-Time Statistics</h2>\n    <table style=\"width: 100%; border-collapse: collapse; margin-bottom: 20px;\">\n      <tr style=\"background: #f5f5f5;\">\n        <td style=\"padding: 8px; border: 1px solid #ddd;\"><strong>Total Messages</strong></td>\n        <td style=\"padding: 8px; border: 1px solid #ddd;\">${analytics.messages.length}</td>\n      </tr>\n      <tr>\n        <td style=\"padding: 8px; border: 1px solid #ddd;\"><strong>Total Leads</strong></td>\n        <td style=\"padding: 8px; border: 1px solid #ddd;\">${analytics.leads.total}</td>\n      </tr>\n      <tr style=\"background: #f5f5f5;\">\n        <td style=\"padding: 8px; border: 1px solid #ddd;\"><strong>Qualified Leads</strong></td>\n        <td style=\"padding: 8px; border: 1px solid #ddd;\">${analytics.leads.qualified}</td>\n      </tr>\n      <tr>\n        <td style=\"padding: 8px; border: 1px solid #ddd;\"><strong>Total Evaluated</strong></td>\n        <td style=\"padding: 8px; border: 1px solid #ddd;\">${evaluations.summary.totalEvaluated}</td>\n      </tr>\n    </table>`;\n\n// Hot Leads Detail Table\nif (hotLeads.length > 0) {\n  html += `\n    <h2 style=\"color: #D32F2F; border-bottom: 2px solid #D32F2F; padding-bottom: 8px;\">🔥 Hot Leads (Immediate Follow-up Needed)</h2>\n    <table style=\"width: 100%; border-collapse: collapse; margin-bottom: 20px;\">\n      <tr style=\"background: #D32F2F; color: white;\">\n        <th style=\"padding: 8px; text-align: left;\">Name</th>\n        <th style=\"padding: 8px; text-align: left;\">Phone</th>\n        <th style=\"padding: 8px; text-align: center;\">Score</th>\n        <th style=\"padding: 8px; text-align: left;\">Intent</th>\n        <th style=\"padding: 8px; text-align: left;\">Recommendation</th>\n      </tr>`;\n  hotLeads.forEach((lead, i) => {\n    const bg = i % 2 === 0 ? '#FFF' : '#FFEBEE';\n    html += `\n      <tr style=\"background: ${bg};\">\n        <td style=\"padding: 8px; border: 1px solid #ddd;\">${lead.name || 'Unknown'}</td>\n        <td style=\"padding: 8px; border: 1px solid #ddd;\">${lead.phone || 'N/A'}</td>\n        <td style=\"padding: 8px; border: 1px solid #ddd; text-align: center; font-weight: bold;\">${lead.score}/100</td>\n        <td style=\"padding: 8px; border: 1px solid #ddd;\">${lead.intent || 'N/A'}</td>\n        <td style=\"padding: 8px; border: 1px solid #ddd; font-size: 12px;\">${lead.recommendation}</td>\n      </tr>`;\n  });\n  html += `</table>`;\n}\n\n// Warm Leads Detail Table\nif (warmLeads.length > 0) {\n  html += `\n    <h2 style=\"color: #F57F17; border-bottom: 2px solid #F57F17; padding-bottom: 8px;\">🌡️ Warm Leads (Nurture Required)</h2>\n    <table style=\"width: 100%; border-collapse: collapse; margin-bottom: 20px;\">\n      <tr style=\"background: #F57F17; color: white;\">\n        <th style=\"padding: 8px; text-align: left;\">Name</th>\n        <th style=\"padding: 8px; text-align: left;\">Phone</th>\n        <th style=\"padding: 8px; text-align: center;\">Score</th>\n        <th style=\"padding: 8px; text-align: left;\">Intent</th>\n      </tr>`;\n  warmLeads.forEach((lead, i) => {\n    const bg = i % 2 === 0 ? '#FFF' : '#FFF8E1';\n    html += `\n      <tr style=\"background: ${bg};\">\n        <td style=\"padding: 8px; border: 1px solid #ddd;\">${lead.name || 'Unknown'}</td>\n        <td style=\"padding: 8px; border: 1px solid #ddd;\">${lead.phone || 'N/A'}</td>\n        <td style=\"padding: 8px; border: 1px solid #ddd; text-align: center; font-weight: bold;\">${lead.score}/100</td>\n        <td style=\"padding: 8px; border: 1px solid #ddd;\">${lead.intent || 'N/A'}</td>\n      </tr>`;\n  });\n  html += `</table>`;\n}\n\n// Top Intents\nif (intentEntries.length > 0) {\n  html += `\n    <h2 style=\"color: #128C7E; border-bottom: 2px solid #25D366; padding-bottom: 8px;\">🎯 Top Intents</h2>\n    <table style=\"width: 100%; border-collapse: collapse; margin-bottom: 20px;\">\n      <tr style=\"background: #128C7E; color: white;\">\n        <th style=\"padding: 8px; text-align: left;\">Intent</th>\n        <th style=\"padding: 8px; text-align: center;\">Count</th>\n      </tr>`;\n  intentEntries.forEach(([intentName, count], i) => {\n    const bg = i % 2 === 0 ? '#FFF' : '#E8F5E9';\n    html += `\n      <tr style=\"background: ${bg};\">\n        <td style=\"padding: 8px; border: 1px solid #ddd;\">${intentName}</td>\n        <td style=\"padding: 8px; border: 1px solid #ddd; text-align: center; font-weight: bold;\">${count}</td>\n      </tr>`;\n  });\n  html += `</table>`;\n}\n\nhtml += `\n    <div style=\"background: #E8F5E9; padding: 15px; border-radius: 5px; margin-top: 20px; text-align: center;\">\n      <p style=\"margin: 0; color: #2E7D32; font-size: 14px;\">\n        🤖 Generated by wCRM WhatsApp Chatbot • ${todayStr}\n      </p>\n    </div>\n  </div>\n</div>`;\n\n// Build plain text summary as well\nconst textSummary = [\n  'WhatsApp Chatbot Daily Summary',\n  '================================',\n  'Date: ' + yesterdayStr,\n  '',\n  'DAILY OVERVIEW:',\n  '  Messages: ' + dailyStats.messages,\n  '  Unique Users: ' + dailyStats.uniqueUsers,\n  '  New Leads: ' + dailyStats.leads,\n  '  Evaluated: ' + recentEvals.length,\n  '',\n  'LEAD EVALUATION:',\n  '  Hot Leads: ' + hotLeads.length,\n  '  Warm Leads: ' + warmLeads.length,\n  '  Cold Leads: ' + coldLeads.length,\n  '',\n  'ALL-TIME STATS:',\n  '  Total Messages: ' + analytics.messages.length,\n  '  Total Leads: ' + analytics.leads.total,\n  '  Qualified Leads: ' + analytics.leads.qualified,\n  '  Total Evaluated: ' + evaluations.summary.totalEvaluated,\n].join('\\n');\n\nreturn [{\n  json: {\n    subject: '📊 WhatsApp Chatbot Daily Summary — ' + yesterdayStr,\n    htmlBody: html,\n    textBody: textSummary,\n    stats: {\n      messages: dailyStats.messages,\n      uniqueUsers: dailyStats.uniqueUsers,\n      newLeads: dailyStats.leads,\n      hotLeads: hotLeads.length,\n      warmLeads: warmLeads.length,\n      coldLeads: coldLeads.length,\n      totalEvaluated: evaluations.summary.totalEvaluated\n    }\n  }\n}];",
+        "language": "javaScript"
+      },
+      "id": "daily-summary-compiler",
+      "name": "📊 44. Daily Summary Compiler",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1800,
+        1200
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "shahidjalally@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "={{ $json.htmlBody }}",
+        "options": {}
+      },
+      "id": "gmail-daily-summary",
+      "name": "📧 45. Send Daily Summary Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -1600,
+        1200
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail-oauth2",
+          "name": "Gmail Account"
         }
       }
     }
@@ -1450,7 +1520,7 @@
       "main": [
         [
           {
-            "node": "✅ 35. Execution Complete",
+            "node": "📋 35. Lead Evaluation",
             "type": "main",
             "index": 0
           }
@@ -1561,6 +1631,39 @@
         [
           {
             "node": "📝 32. wCRM Integration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📋 35. Lead Evaluation": {
+      "main": [
+        [
+          {
+            "node": "✅ 36. Execution Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏰ 43. Daily Summary Trigger (8 AM)": {
+      "main": [
+        [
+          {
+            "node": "📊 44. Daily Summary Compiler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 44. Daily Summary Compiler": {
+      "main": [
+        [
+          {
+            "node": "📧 45. Send Daily Summary Email",
             "type": "main",
             "index": 0
           }
