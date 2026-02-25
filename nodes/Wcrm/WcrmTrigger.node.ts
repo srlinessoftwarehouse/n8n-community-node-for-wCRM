@@ -22,6 +22,7 @@ export class WcrmTrigger implements INodeType {
 		},
 		inputs: [],
 		outputs: ['main'],
+		usableAsTool: true,
 		credentials: [
 			{
 				name: 'wcrmApi',
