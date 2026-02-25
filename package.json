@@ -1,56 +1,62 @@
 {
-	"name": "n8n-nodes-wcrm",
-	"version": "1.0.22",
-	"description": "n8n community node for wCRM WhatsApp Cloud API",
-	"keywords": [
-		"n8n-community-node-package",
-		"whatsapp",
-		"wcrm",
-		"messaging"
-	],
-	"license": "MIT",
-	"homepage": "",
-	"author": {
-		"name": "srlines"
-	},
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/srlinessoftwarehouse/n8n-community-node-for-wCRM.git"
-	},
-	"publishConfig": {
-		"access": "public"
-	},
-	"main": "index.js",
-	"scripts": {
-		"build": "tsc && gulp build:icons",
-		"dev": "tsc --watch",
-		"format": "prettier nodes credentials --write",
-		"lint": "eslint nodes credentials package.json",
-		"lintfix": "eslint nodes credentials package.json --fix",
-		"prepublishOnly": "npm run build"
-	},
-	"files": [
-		"dist"
-	],
-	"n8n": {
-		"n8nNodesApiVersion": 1,
-		"credentials": [
-			"dist/credentials/WcrmApi.credentials.js"
-		],
-		"nodes": [
-			"dist/nodes/Wcrm/Wcrm.node.js",
-			"dist/nodes/Wcrm/WcrmTrigger.node.js"
-		]
-	},
-	"devDependencies": {
-		"@typescript-eslint/parser": "~7.0.2",
-		"eslint": "~8.56.0",
-		"gulp": "^4.0.2",
-		"n8n-workflow": "^2.9.0",
-		"prettier": "~3.2.5",
-		"typescript": "~5.3.3"
-	},
-	"peerDependencies": {
-		"n8n-workflow": "*"
-	}
+  "name": "n8n-nodes-wcrm",
+  "version": "1.0.26",
+  "description": "n8n community node for wCRM WhatsApp Cloud API",
+  "keywords": [
+    "n8n-community-node-package",
+    "n8n",
+    "whatsapp",
+    "wcrm",
+    "messaging"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/srlinessoftwarehouse/n8n-community-node-for-wCRM",
+  "author": {
+    "name": "SRLINES SOFTWARE HOUSE (SMC-PRIVATE) LIMITED",
+    "email": "srlinessoftwarehouse@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/srlinessoftwarehouse/n8n-community-node-for-wCRM.git"
+  },
+  "bugs": {
+    "url": "https://github.com/srlinessoftwarehouse/n8n-community-node-for-wCRM/issues",
+    "email": "srlinessoftwarehouse@gmail.com"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc && gulp build:icons",
+    "dev": "tsc --watch",
+    "format": "prettier nodes credentials --write",
+    "lint": "eslint nodes credentials package.json",
+    "lintfix": "eslint nodes credentials package.json --fix",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/WcrmApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/Wcrm/Wcrm.node.js",
+      "dist/nodes/Wcrm/WcrmTrigger.node.js"
+    ]
+  },
+  "devDependencies": {
+    "@typescript-eslint/parser": "~7.0.2",
+    "eslint": "~8.56.0",
+    "gulp": "^4.0.2",
+    "n8n-workflow": "^2.9.0",
+    "prettier": "~3.2.5",
+    "typescript": "~5.3.3"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  }
 }
