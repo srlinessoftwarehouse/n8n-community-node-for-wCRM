@@ -3,3 +3,5 @@ dist/
 *.js.map
 *.js
 !gulpfile.js
+*.tgz
+package-lock.json

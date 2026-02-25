@@ -23,6 +23,7 @@ export class Wcrm implements INodeType {
 		},
 		inputs: ['main'],
 		outputs: ['main'],
+		usableAsTool: true,
 		credentials: [
 			{
 				name: 'wcrmApi',

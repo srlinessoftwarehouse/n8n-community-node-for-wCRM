@@ -1,5 +1,6 @@
 import {
 	IAuthenticateGeneric,
+	ICredentialTestRequest,
 	ICredentialType,
 	INodeProperties,
 } from 'n8n-workflow';
@@ -36,6 +37,14 @@ export class WcrmApi implements ICredentialType {
 			qs: {
 				token: '={{$credentials.apiKey}}',
 			},
+		},
+	};
+
+	test: ICredentialTestRequest = {
+		request: {
+			baseURL: 'https://crm.srlines.net/api/v1',
+			url: '/send-message',
+			method: 'GET',
 		},
 	};
 }
