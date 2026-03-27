@@ -41,14 +41,6 @@ To use this node you need a **wCRM API Key**.
 
 This single API Key is used to authenticate all requests to the wCRM API.
 
-### Icon setup (for package/repo maintainers)
-
-- The icon is referenced in code as `file:wcrm.svg`.
-- Place the icon file at:
-  - `nodes/Wcrm/wcrm.svg` (source file in this repository)
-- File extension should be exactly: `.svg`
-- During build, icon assets are packaged into `dist/` automatically by the existing build pipeline.
-
 ### Incoming Messages — Callback URI Setup
 
 The wCRM platform forwards all incoming WhatsApp message payloads to your n8n webhook URL.
