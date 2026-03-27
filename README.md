@@ -12,7 +12,7 @@ This is an n8n community node for the **wCRM WhatsApp Cloud API**. It allows you
 - **Support Email:** contact@srlines.net
 - **WhatsApp Support:** +92 333 9776136
 
-> Note: This package only integrates with the existing `crm.srlines.net` service. No changes to your main web application are required.
+> Note: This package only integrates with the existing `crm.srlines.net` service.
 
 ## Features
 
