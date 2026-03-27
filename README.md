@@ -4,6 +4,16 @@ This is an n8n community node for the **wCRM WhatsApp Cloud API**. It allows you
 
 [n8n](https://n8n.io/) is a [fair-code licensed](https://docs.n8n.io/reference/license/) workflow automation platform.
 
+## Documentation & Support
+
+- **wCRM Application/API Base URL:** https://crm.srlines.net
+- **Package Documentation (this README):** https://github.com/srlinessoftwarehouse/n8n-community-node-for-wCRM#readme
+- **Main Website:** https://srlines.net
+- **Support Email:** contact@srlines.net
+- **WhatsApp Support:** +92 333 9776136
+
+> Note: This package only integrates with the existing `crm.srlines.net` service. No changes to your main web application are required.
+
 ## Features
 
 - **Send Messages** — Text, Image, Audio, Document, Video, Interactive Lists, Interactive Buttons
@@ -235,19 +245,6 @@ The wCRM node is designed for building sophisticated WhatsApp chatbots. Here are
 - **Use Interactive Lists and Buttons** for structured user input (menus, confirmations, selections).
 - **Use Templates** for standardized messages (order confirmations, appointment reminders, etc.).
 - **Reference old messages** via the Message Store to provide contextual responses.
-
-## Development
-
-```bash
-# Install dependencies
-npm install
-
-# Build the project
-npm run build
-
-# Watch for changes during development
-npm run dev
-```
 
 ## License
 

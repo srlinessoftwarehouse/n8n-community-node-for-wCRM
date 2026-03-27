@@ -5,6 +5,7 @@ import {
 	INodeTypeDescription,
 	IDataObject,
 	NodeOperationError,
+	NodeConnectionTypes,
 } from 'n8n-workflow';
 
 import { wcrmApiRequest } from './GenericFunctions';
@@ -21,8 +22,8 @@ export class Wcrm implements INodeType {
 		defaults: {
 			name: 'wCRM',
 		},
-		inputs: ['main'],
-		outputs: ['main'],
+		inputs: [NodeConnectionTypes.Main],
+		outputs: [NodeConnectionTypes.Main],
 		usableAsTool: true,
 		credentials: [
 			{
@@ -74,18 +75,6 @@ export class Wcrm implements INodeType {
 				},
 				options: [
 					{
-						name: 'Send Text',
-						value: 'sendText',
-						description: 'Send a text message',
-						action: 'Send a text message',
-					},
-					{
-						name: 'Send Image',
-						value: 'sendImage',
-						description: 'Send an image message',
-						action: 'Send an image message',
-					},
-					{
 						name: 'Send Audio',
 						value: 'sendAudio',
 						description: 'Send an audio message',
@@ -98,10 +87,16 @@ export class Wcrm implements INodeType {
 						action: 'Send a document message',
 					},
 					{
-						name: 'Send Video',
-						value: 'sendVideo',
-						description: 'Send a video message',
-						action: 'Send a video message',
+						name: 'Send Image',
+						value: 'sendImage',
+						description: 'Send an image message',
+						action: 'Send an image message',
+					},
+					{
+						name: 'Send Interactive Buttons',
+						value: 'sendInteractiveButtons',
+						description: 'Send an interactive button message',
+						action: 'Send an interactive button message',
 					},
 					{
 						name: 'Send Interactive List',
@@ -110,10 +105,16 @@ export class Wcrm implements INodeType {
 						action: 'Send an interactive list message',
 					},
 					{
-						name: 'Send Interactive Buttons',
-						value: 'sendInteractiveButtons',
-						description: 'Send an interactive button message',
-						action: 'Send an interactive button message',
+						name: 'Send Text',
+						value: 'sendText',
+						description: 'Send a text message',
+						action: 'Send a text message',
+					},
+					{
+						name: 'Send Video',
+						value: 'sendVideo',
+						description: 'Send a video message',
+						action: 'Send a video message',
 					},
 				],
 				default: 'sendText',
@@ -158,6 +159,12 @@ export class Wcrm implements INodeType {
 				},
 				options: [
 					{
+						name: 'Clear Messages',
+						value: 'clearMessages',
+						description: 'Clear all stored messages',
+						action: 'Clear all stored messages',
+					},
+					{
 						name: 'Get All Messages',
 						value: 'getAllMessages',
 						description: 'Retrieve all stored incoming messages',
@@ -174,12 +181,6 @@ export class Wcrm implements INodeType {
 						value: 'saveMessage',
 						description: 'Manually save a message payload to the internal store',
 						action: 'Save a message to the store',
-					},
-					{
-						name: 'Clear Messages',
-						value: 'clearMessages',
-						description: 'Clear all stored messages',
-						action: 'Clear all stored messages',
 					},
 				],
 				default: 'getAllMessages',

@@ -6,6 +6,7 @@ import {
 	IDataObject,
 	INodeExecutionData,
 	NodeOperationError,
+	NodeConnectionTypes,
 } from 'n8n-workflow';
 
 export class WcrmTrigger implements INodeType {
@@ -21,20 +22,14 @@ export class WcrmTrigger implements INodeType {
 			name: 'wCRM Trigger',
 		},
 		inputs: [],
-		outputs: ['main'],
+		outputs: [NodeConnectionTypes.Main],
 		usableAsTool: true,
-		credentials: [
-			{
-				name: 'wcrmApi',
-				required: true,
-			},
-		],
 		webhooks: [
 			{
 				name: 'default',
 				httpMethod: 'POST',
 				responseMode: 'onReceived',
-				path: 'wcrm-webhook',
+				path: '={{$parameter["webhookPath"]}}',
 			},
 		],
 		properties: [
