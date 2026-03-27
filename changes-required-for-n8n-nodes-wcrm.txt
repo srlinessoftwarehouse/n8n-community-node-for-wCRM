@@ -1,0 +1,49 @@
+Changes required to your node package
+Thanks for your patience while we reviewed your submission — we appreciate the work that went into building this node.
+
+We found a few issues that need to be addressed before we can verify the package. Please fix the following and republish to npm:
+
+[HIGH] httpRequest() used instead of httpRequestWithAuthentication() — blocks scanner
+
+File: nodes/Wcrm/GenericFunctions.ts:33
+this.helpers.httpRequest() is used alongside manual credential extraction via this.getCredentials(). n8n requires using this.helpers.httpRequestWithAuthentication('wcrmApi', options) instead, which delegates authentication to n8n's secure layer and enables features like audit logging and token refresh. This is enforced by the automated scanner and is a hard blocker. See HTTP helpers.
+[HIGH] Webhook path hardcoded — webhookPath UI parameter has no effect
+
+File: nodes/Wcrm/WcrmTrigger.node.ts:58-63
+The webhooks[] array has path: 'wcrm-webhook' hardcoded, but the node also exposes a webhookPath parameter that users can configure. n8n registers the actual webhook URL from the webhooks[] definition, so the user's configured value is silently ignored — the webhook URL is always …/webhook/wcrm-webhook regardless of what is entered. Either remove the webhookPath parameter and document the static path, or make the path dynamic by changing the webhooks[] entry to path: '={{$parameter["webhookPath"]}}'.
+[MEDIUM] Missing icon property on credentials
+
+File: credentials/WcrmApi.credentials.ts
+The WcrmApi credential type has no icon field. n8n shows a generic icon in the credential picker when this is absent. Add icon: 'file:wcrm.svg' to the class definition (the SVG already exists in the package). See Create credentials.
+[MEDIUM] inputs and outputs should use NodeConnectionType enum
+
+File: nodes/Wcrm/Wcrm.node.ts:24-25, nodes/Wcrm/WcrmTrigger.node.ts:23-24
+Both nodes declare inputs: ['main'] and outputs: ['main'] as raw string literals. The documented pattern is to import and use the NodeConnectionType enum: import { NodeConnectionType } from 'n8n-workflow' and then inputs: [NodeConnectionType.Main], outputs: [NodeConnectionType.Main]. See Node description.
+[MEDIUM] Inconsistent authentication between endpoints
+
+File: nodes/Wcrm/GenericFunctions.ts:14-31
+Most endpoints append the API key as ?token=<key> in the URL, but /send_templet injects an Authorization: Bearer header. These should be consistent. When switching to httpRequestWithAuthentication() (required per the HIGH finding above), also update the credential's authenticate block to use headers: { Authorization: 'Bearer {{$credentials.apiKey}}' } for all endpoints — this will align with the Bearer pattern already used for /send_templet and avoids sending secrets in query strings where they can appear in server access logs.
+[MEDIUM] Credential test request uses GET on a write endpoint
+
+File: credentials/WcrmApi.credentials.ts:43-49
+The test block calls GET /api/v1/send-message, which is a send/write endpoint. A GET request to a send endpoint is likely to return a 405 or an unexpected response, making credential verification unreliable. Update the test to use a read-only or health-check endpoint if one is available, or adjust the method to match what the API actually accepts.
+[MEDIUM] Message operations not sorted alphabetically
+
+File: nodes/Wcrm/Wcrm.node.ts:73-118
+The operations under the message resource should be listed alphabetically. Current order: Send Text, Send Image, Send Audio, Send Document, Send Video, Send Interactive List, Send Interactive Buttons. Expected order: Send Audio, Send Document, Send Image, Send Interactive Buttons, Send Interactive List, Send Text, Send Video. See UX guidelines.
+[MEDIUM] Message Store operations not sorted alphabetically
+
+File: nodes/Wcrm/Wcrm.node.ts:155-184
+The operations under the messageStore resource should be listed alphabetically. Current order: Get All Messages, Get Messages by Phone, Save Message, Clear Messages. Expected order: Clear Messages, Get All Messages, Get Messages by Phone, Save Message. See UX guidelines.
+[LOW] Trigger node requires credentials but does not validate incoming webhooks
+
+File: nodes/Wcrm/WcrmTrigger.node.ts:26-31
+The trigger declares credentials: [{ name: 'wcrmApi', required: true }] but the webhook() handler never calls this.getCredentials() or uses them for any purpose (e.g. HMAC signature verification of incoming payloads). If credentials are not needed for incoming webhook validation, remove the credentials block from the trigger. If signature verification is intended, it should be implemented.
+[LOW] documentationUrl should link to API documentation, not the product homepage
+
+File: credentials/WcrmApi.credentials.ts:11
+documentationUrl is set to https://crm.srlines.net (the app root). n8n surfaces this as a "Documentation" link in the credentials panel — it should point to the wCRM API documentation or a setup guide, not just the homepage.
+[LOW] GitHub Actions publish workflow with provenance required from May 1st
+
+File: CI pipeline / package.json
+Starting May 1st 2026, all nodes submitted for verification must be published via a GitHub Actions workflow and include an npm provenance statement. We recommend switching now to avoid a required update later. See Submit your node for verification for details.
