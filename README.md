@@ -254,19 +254,6 @@ The wCRM node is designed for building sophisticated WhatsApp chatbots. Here are
 - **Use Templates** for standardized messages (order confirmations, appointment reminders, etc.).
 - **Reference old messages** via the Message Store to provide contextual responses.
 
-## Development
-
-```bash
-# Install dependencies
-npm install
-
-# Build the project
-npm run build
-
-# Watch for changes during development
-npm run dev
-```
-
 ## License
 
 [MIT](LICENSE)
