@@ -11,24 +11,15 @@ export async function wcrmApiRequest(
 	endpoint: string,
 	body: IDataObject = {},
 ): Promise<IDataObject> {
-	const credentials = await this.getCredentials('wcrmApi');
-	const apiKey = credentials.apiKey as string;
-
 	const options: IHttpRequestOptions = {
 		method,
 		url: `https://crm.srlines.net/api/v1${endpoint}`,
 		body,
 		json: true,
+		headers: {
+			'Content-Type': 'application/json',
+		},
 	};
 
-	if (endpoint === '/send_templet') {
-		options.headers = {
-			'Content-Type': 'application/json',
-			Authorization: `Bearer ${apiKey}`,
-		};
-	} else {
-		options.url += `${options.url!.includes('?') ? '&' : '?'}token=${apiKey}`;
-	}
-
-	return this.helpers.httpRequest(options) as Promise<IDataObject>;
+	return this.helpers.httpRequestWithAuthentication.call(this, 'wcrmApi', options) as Promise<IDataObject>;
 }
