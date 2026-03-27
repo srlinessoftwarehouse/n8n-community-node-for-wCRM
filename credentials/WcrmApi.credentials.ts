@@ -11,7 +11,7 @@ export class WcrmApi implements ICredentialType {
 	displayName = 'wCRM API';
 	documentationUrl =
 		'https://github.com/srlinessoftwarehouse/n8n-community-node-for-wCRM/blob/main/README.md#documentation--support';
-	icon: Icon = 'file:wcrm.svg';
+	icon: Icon = 'file:../nodes/Wcrm/wcrm.svg';
 	properties: INodeProperties[] = [
 		{
 			displayName: 'API Key',
@@ -39,6 +39,9 @@ export class WcrmApi implements ICredentialType {
 		properties: {
 			headers: {
 				Authorization: '={{"Bearer " + $credentials.apiKey}}',
+			},
+			qs: {
+				token: '={{$credentials.apiKey}}',
 			},
 		},
 	};
