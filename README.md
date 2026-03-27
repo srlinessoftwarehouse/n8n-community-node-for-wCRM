@@ -4,6 +4,16 @@ This is an n8n community node for the **wCRM WhatsApp Cloud API**. It allows you
 
 [n8n](https://n8n.io/) is a [fair-code licensed](https://docs.n8n.io/reference/license/) workflow automation platform.
 
+## Documentation & Support
+
+- **wCRM Application/API Base URL:** https://crm.srlines.net
+- **Package Documentation (this README):** https://github.com/srlinessoftwarehouse/n8n-community-node-for-wCRM#readme
+- **Main Website:** https://srlines.net
+- **Support Email:** contact@srlines.net
+- **WhatsApp Support:** +92 333 9776136
+
+> Note: This package only integrates with the existing `crm.srlines.net` service. No changes to your main web application are required.
+
 ## Features
 
 - **Send Messages** — Text, Image, Audio, Document, Video, Interactive Lists, Interactive Buttons
@@ -30,6 +40,14 @@ To use this node you need a **wCRM API Key**.
 3. Save the credential.
 
 This single API Key is used to authenticate all requests to the wCRM API.
+
+### Icon setup (for package/repo maintainers)
+
+- The icon is referenced in code as `file:wcrm.svg`.
+- Place the icon file at:
+  - `nodes/Wcrm/wcrm.svg` (source file in this repository)
+- File extension should be exactly: `.svg`
+- During build, icon assets are packaged into `dist/` automatically by the existing build pipeline.
 
 ### Incoming Messages — Callback URI Setup
 

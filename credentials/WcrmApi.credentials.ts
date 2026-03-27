@@ -2,13 +2,16 @@ import {
 	IAuthenticateGeneric,
 	ICredentialTestRequest,
 	ICredentialType,
+	Icon,
 	INodeProperties,
 } from 'n8n-workflow';
 
 export class WcrmApi implements ICredentialType {
 	name = 'wcrmApi';
 	displayName = 'wCRM API';
-	documentationUrl = 'https://crm.srlines.net';
+	documentationUrl =
+		'https://github.com/srlinessoftwarehouse/n8n-community-node-for-wCRM/blob/main/README.md#documentation--support';
+	icon: Icon = 'file:wcrm.svg';
 	properties: INodeProperties[] = [
 		{
 			displayName: 'API Key',
@@ -34,8 +37,8 @@ export class WcrmApi implements ICredentialType {
 	authenticate: IAuthenticateGeneric = {
 		type: 'generic',
 		properties: {
-			qs: {
-				token: '={{$credentials.apiKey}}',
+			headers: {
+				Authorization: '={{"Bearer " + $credentials.apiKey}}',
 			},
 		},
 	};
@@ -43,7 +46,7 @@ export class WcrmApi implements ICredentialType {
 	test: ICredentialTestRequest = {
 		request: {
 			baseURL: 'https://crm.srlines.net/api/v1',
-			url: '/send-message',
+			url: '/get-store-messages',
 			method: 'GET',
 		},
 	};
